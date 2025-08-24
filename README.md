@@ -32,6 +32,7 @@ Outside of the hc.h (things i haven't decided fate of with hc.h)
 
 Things i wanna do for hc.h or just as stand alone header in this repo
 
+- stack - append elements of dynamic size onto a "stack"
 - tree node operations like in linked lists li_append_children()
 - format.h - for colored output in both ANSI compliant and Win32 enviroments
 - profile.h - simple clock struck for measuring performance in scopes
