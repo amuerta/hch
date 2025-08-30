@@ -1,15 +1,7 @@
-
-
-// you define your data
-typedef union {
-    int as_int;
-} SparseItem;
-
-
 #define SET_TYPE_SAFETY
 #define SET_EXTRA_TYPE_SAFETY
 
-#include "set.h"
+#include "../set.h"
 
 #if 0
 int main(void) {
