@@ -72,6 +72,8 @@ typedef uint64_t            bitmask64;
 #define arrlen(a)           (sizeof(a)/sizeof(a[0]))
 #define cast(v, T)          ((T)v)
 #define transmute(v, T)     *((T*)&(v))
+#define zeroed(v)           memset(&(v), 0, sizeof(v))
+#define unused(v)           ((void) (v))
 
 #ifndef max
 	#define max(A,B) (A > B) ? A : B
@@ -143,11 +145,12 @@ typedef uint64_t            bitmask64;
 //
 #ifndef li_append
 
-#define li_append(L, I) do {\
-    if(!(L)) {(L) = &(I); (L)->tail = (L);}\
+#define li_append(L, T, I) do {\
+    if(!(L)) {(L) = (I); (L)->tail = (L);}\
     else {\
-        (L)->tail->next = &(I);\
-        (L)->tail = &(I);\
+        T* item = (I);\
+        (L)->tail->next = item;\
+        (L)->tail = item;\
     }\
 }while(0)
 
