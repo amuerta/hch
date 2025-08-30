@@ -3,38 +3,6 @@
 
 #include "../set.h"
 
-#if 0
-int main(void) {
-    Set s= {0};
-    for(int i = 0; i < 10; i++) {
-        set_append(&s, (SI){.as_int=i*10});
-    }
-
-
-    printf("SPARSE: \n [ ");
-    for(int i = 0; i < 10; i++) {
-        printf("%li ", s.sparse[i].de_id);
-    }
-    printf("]\n");
-
-    printf("DENSE: \n [ ");
-    for(int i = 0; i < 10; i++) {
-        printf("%li ", s.dense[i].sp_id);
-    }
-    printf("]\n");
-
-    printf("DATA: \n [ ");
-    for(int i = 0; i < 10; i++) {
-        printf("%i ", s.dense[i].data.as_int);
-    }
-    printf("]\n");
-
-    set_free(&s);
-}
-#endif
-
-
-#if 1
 
 int main(void) {
     Set s = {0};
@@ -93,4 +61,3 @@ int main(void) {
 
     set_free(&s);
 }
-#endif
