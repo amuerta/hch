@@ -7,13 +7,11 @@
 #include <stdio.h>
 #include <assert.h>
 
-// TODO: come up with better solution then user defined struct / union
-// for when you wan't to have high density item packing with wastly different sizes 
-// of data stored in set
-
 typedef long int set_id;
 
-/* flexible array memeber */
+/* flexible array memeber 
+ * because using pointer 
+ * caused freaky behaviour */
 
 #define SET_ITEM_HEAD_SIZE (sizeof(SetItem) - sizeof(unsigned char*))
 typedef struct { set_id sp_id; unsigned char data[1]; } SetItem;

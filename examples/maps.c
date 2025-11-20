@@ -135,7 +135,6 @@ int main(void) {
     
     map_clear(&m.head);
     free(m.items);
-    // VIMRC: Normal/Visual mode tab is comment toggle
     //list_test(); 
     //slice_test();
  

@@ -1,195 +1,12 @@
-//
-//
-// HANDY C HEADER/(headers)
-//
-// 
-// If you find bugs that i am !NOT AWARE OF!, please report them, gracias c:
-// CONTIANS:
-//      - types: [s32, u32, f32, m(mut)str, istr, ...]
-//      - common macros: [arrlen, cast, transmute, ...]
-//      - dynamic array (da_append)
-//      - link (list)   (li_append)
-//      - map string    (maps_*)
-//      - string        (str_*)
-//      - cli arguments (arg_*)
-//      - pooling       (pool_*)
-//
-
-#include <stdlib.h>  
-#include <stdio.h>   
-#include <string.h>  
-#include <assert.h>  
-#include <stdbool.h> 
-#include <stdarg.h>
-
-
-//
-// TYPES
-//
-
-#ifndef __HCH_TYPES_H
-#define __HCH_TYPES_H
-
-#include <stdint.h>
-#include <stdlib.h>
-
-typedef int8_t              i8;
-typedef int16_t             i16;
-typedef int32_t             i32;
-typedef int64_t             i64;
-typedef intmax_t            isize;
-
-typedef int8_t              s8;
-typedef int16_t             s16;
-typedef int32_t             s32;
-typedef int64_t             s64;
-typedef intmax_t            ssize;
-
-typedef uint8_t             u8;
-typedef uint16_t            u16;
-typedef uint32_t            u32;
-typedef uint64_t            u64;
-typedef size_t              usize;
-
-typedef float               f32;
-typedef double              f64;
-                              
-typedef const char*         istr;
-typedef char*               mstr;
-
-typedef size_t              index_t;
-typedef unsigned char       bitmask8;
-typedef unsigned short      bitmask16;
-typedef unsigned int        bitmask32;
-typedef uint64_t            bitmask64;
-
-#endif // __HCH_TYPES_H
-
-//
-// MACROS
-//
-
-#define arrlen(a)           (sizeof(a)/sizeof(a[0]))
-#define cast(v, T)          ((T)v)
-#define transmute(v, T)     *((T*)&(v))
-#define zeroed(v)           memset(&(v), 0, sizeof(v))
-#define unused(v)           ((void) (v))
-
-#ifndef max
-	#define max(A,B) (A > B) ? A : B
-#endif
-
-#ifndef min
-	#define min(A,B) (A < B) ? A : B
-#endif
-
-#ifndef loop
-	#define loop(I,N) for(size_t I = 0; I < (N); I++)
-#endif
-
-// cause segmentaion fault to be able to run gdb on breakpoint
-#ifdef DEBUG_SEGFAULT_ON_ASSERT
-#   define FAULT_TRIGGER \
-        *((int*)0) = 1 
-#endif
-
-#ifndef FAULT_TRIGGER
-#define FAULT_TRIGGER // does nothing 
-#endif
-
-#ifndef hch_assert
-#define hch_assert(COND,...) \
-    do { if (!(COND)) { \
-        fprintf(stderr,"Assertion at [%s:%s:%d]: ",__FILE__,__func__,__LINE__); \
-        fprintf(stderr,__VA_ARGS__); \
-        fprintf(stderr,"\n"); \
-        FAULT_TRIGGER;      \
-        fprintf(stderr, "NOTE: you can define FAULT_TRIGGER to enable gdb breakpoint\n");\
-        exit(1);            \
-    }} while(0)
-#endif
-
-
-
-
-
-
-
-// 
-// Dynamic array generic macro
-//
-
-// it is just more useful then a standalone implementation 
-// of dynamic array with void*
-#ifndef da_append // if no da_append
-                  // implement it
-#define DA_GROW_FACTOR 2
-
-#define da_append(DA, ...) do { \
-    if ((DA)->capacity == 0) {(DA)->capacity = 32; (DA)->items = calloc(32,sizeof(*(DA)->items));}\
-    if ((DA)->count >= (DA)->capacity) {\
-        (DA)->capacity *= DA_GROW_FACTOR;\
-        (DA)->items = realloc((DA)->items,sizeof(*(DA)->items) * (DA)->capacity);\
-    }\
-    (DA)->items[((DA)->count)++] = (__VA_ARGS__);\
-} while(0);
-
-#endif// da_append 
-
-
-
-
-
-//
-// Link appendage (Linked List)
-//
-#ifndef li_append
-
-#define li_append(L, T, I) do {\
-    if(!(L)) {(L) = (I); (L)->tail = (L);}\
-    else {\
-        T* item = (I);\
-        (L)->tail->next = item;\
-        (L)->tail = item;\
-    }\
-}while(0)
-
-#define li_foreach(LI, T, I, ...) do {\
-   T* next = (LI);\
-   T* prev = (LI); (void)prev; (void)next;\
-   while(next) {\
-       T* I = next;\
-       {__VA_ARGS__}\
-       prev = next;\
-       next = next->next;\
-   }\
-} while(0)
-
-#define li_defer(LI, T, ...) do {\
-   T* next = (LI);\
-   T* prev = (LI);\
-   while(next) {\
-       prev = next;\
-       next = next->next;\
-       {__VA_ARGS__}\
-       prev = 0;\
-   } (LI) = 0;\
-} while(0)
-
-#endif//li_append
-
-
-//
-// ARENA
-//
+/*
+   ARENA
+*/
 
 // 
 // Simple implementation of arena allocator build on top of the posix malloc
 // you can replace malloc by a system specific memory allocator, like linuxe's mmap
 // or window's get..memory..something..idk i dont use windows.
 //
-
-#ifdef INCLUDE_ARENA
 
 #ifndef __ARENA_H
 #define __ARENA_H
@@ -241,8 +58,6 @@ void        arena_reset     (Arena*, int opt);
 ArenaNode* arena_make_node(void);
 
 
-
-#ifdef HCH_ARENA_IMPLEMENTATION
 
 ArenaNode* arena_make_node(void) {
     return calloc(ARENA_NODE_SIZE, 1);
@@ -300,151 +115,200 @@ void arena_memcpy(Arena* a, void* data, size_t size) {
 }
 
 
-#endif//HCH_ARENA_IMPLEMENTATION
-      
 #endif//__ARENA_H
-
-#endif//INCLUDE_ARENA
-
-
 //
-// String Builder (Nob style)
+// ARGS - argument parsing
 //
 
-#ifdef INCLUDE_STRING_BUILDER
 
-#ifndef __HCH_SB_H
-#define __HCH_SB_H
+// TODO: add flags that don't need '--'
+// TODO: add support '--flag=<VALUE>'
+
+
+#ifndef __HCH_ARGS_H
+#define __HCH_ARGS_H
+
+#include <stdlib.h>  
+#include <stdio.h>   
+#include <string.h>  
+#include <assert.h>  
+#include <stdbool.h> 
 
 typedef struct {
-    // transmutable -> DA
-    char*  items;
-    size_t count, capacity;
+    char**          items;
+    int             count;
+} ArgsSlice;
 
-    const char* spacer;
-} StringBuilder;
-
-#define sb_arrlit(...)          ((const char*[]) {__VA_ARGS__})
-#define sb_arrlen(arr)          (sizeof(arr) / sizeof((arr)[0]))
-#define sb_arrlit_len(...)      (sb_arrlen((__VA_ARGS__)))
-
-#define sb_min(a,b) ((a) > (b))? (b) : (a)
-#define sb_max(a,b) ((a) < (b))? (b) : (a)
-
-// TODO: move this somewhere else higher up
-// it can be wiedly used.
-void* recalloc(void* ptr, size_t prev_size, size_t size) {
-    void* new_ptr = calloc(size, 1);
-    if(ptr) {
-        memcpy(new_ptr, ptr, prev_size);
-        free(ptr);
-    }
-    return new_ptr;
+bool arg_str_is_flag(const char* str) {
+    return str && strlen(str) >= 2 && (strncmp(str,"--", 2)==0 || *str == '-') ;
 }
 
-void sb__append(StringBuilder* sb, const char** items, size_t count) {
-    if (!count) return;
-    size_t append_size = 0;
-    size_t spacer_size = 0;
-
-    if (sb->spacer) spacer_size = strlen(sb->spacer); 
-
-    for(size_t i = 0; i < count; i++) {
-        if (!items[i]) continue;
-        append_size += strlen(items[i]);
-        if (i != count - 1 || i) 
-            append_size += spacer_size;
+int arg_flag(ArgsSlice args, const char* flag) {
+    assert(flag);
+    for(int i = 0; i < args.count; i++) {
+        const char* s = args.items[i];
+        if (arg_str_is_flag(s)) 
+            if (*s == '-' || (*s == '-' && strcmp((s+2), flag)==0)) 
+                return i;
     }
-    // null terminator
-    if(append_size) append_size++;
+    return 0;
+}
 
-    if (!sb->items || !sb->capacity) {
-        sb->capacity = 32;
-        sb->items = calloc(32, 1);
-    }
-    if (sb->count + append_size >= sb->capacity) {
-        size_t new_size = sb_max(sb->capacity*2, sb->capacity + append_size);
-        sb->items = recalloc(sb->items, sb->capacity, new_size);
-        sb->capacity = new_size;
-    }
+int arg_list(ArgsSlice args, const char* flag, ArgsSlice* out) {
+    int b = 0;
+    if((b = arg_flag(args,flag))) {
+        if (b+1 < args.count)   out->items = args.items + b+1;
+        else                    out->items = 0;
 
-    for(size_t i = 0; i < count; i++)  {
-        if (!items[i]) continue;
-        size_t len = strlen(items[i]);
-        if(items[i]) {
-            memcpy(sb->items + sb->count, items[i], len);
-            sb->count += len;
-            
-            if (spacer_size && (i != count-1)) {
-                memcpy(sb->items + sb->count, sb->spacer, spacer_size);
-                sb->count += spacer_size;
-            }
-
+        for(int i = b+1; i < args.count; i++) {
+            if(arg_str_is_flag(args.items[i])) break;
+                out->count++;
         }
     }
+    return b;
 }
 
-void sb_appendf(StringBuilder* sb, const char* fmt, ...) {
-    va_list args, args_len;
-    va_start(args, fmt);
-    va_copy(args_len, args);
-    size_t size = vsnprintf(0,0,fmt,args_len);
-    va_end(args_len);
+#endif//__HCH_ARGS_H
+/*
+    DYNAMIC ARRAY
+*/
 
-    const char* temp = calloc(size+1,1);
-    vsnprintf((char*)temp, size+1, fmt, args);
-    sb__append(sb, &temp, 1);
-    free((void*)temp);
-    
-    va_end(args);
+
+#ifndef __DA_H
+#define __DA_H
+
+#include <stdlib.h>  
+#include <stdio.h>   
+#include <string.h>  
+#include <assert.h>  
+
+// it is just more useful then a standalone implementation 
+// of dynamic array with void*
+#ifndef da_append // if no da_append
+                  // implement it
+
+// This dynamic array is a trick i have seen @Tsoding use,
+// and its (probably) the simplest way of doing dynamic array i used.
+// 
+// It's sort of robust and convinient to use.
+// HOWEVER it's just a macro, which can be an issue when trying to port 
+// projects/libraries to other languages.
+//
+// My solution:
+//  Have api that either calls macros, or actual functions.
+//  You can change which one to use with simple toggle.
+//  Behaviour remains the same in both cases.
+//
+//  This way you can use da_append outside of C, 
+//  its pretty dirty with `void*` but you can create interfaces
+//  in pretty much any other language other than C, or use macros of any kind.
+#define DA_GROW_FACTOR 2
+
+#ifdef DA_LINKABLE
+#   define da_append(DA, VAR) __da_append_generic(&((DA)->items), &(VAR), sizeof((VAR)));
+#else
+#   define da_append(DA, VAR) __da_append_macro((DA), (VAR));
+#endif
+
+// generic "interface"
+typedef struct {
+    void* items;
+    size_t count, capacity, typesize;
+} DaGeneric;
+
+#define __da_append_macro(DA, VAR) do { \
+    if ((DA)->capacity == 0) {(DA)->capacity = 32; (DA)->items = calloc(32,sizeof(*(DA)->items));}\
+    if ((DA)->count >= (DA)->capacity) {\
+        (DA)->capacity *= DA_GROW_FACTOR;\
+        (DA)->items = realloc((DA)->items,sizeof(*(DA)->items) * (DA)->capacity);\
+    }\
+    (DA)->items[((DA)->count)++] = VAR;\
+} while(0);
+
+void __da_append_generic(void* da_ptr, void* varptr, size_t size) {
+    DaGeneric* da = da_ptr;
+    if (da->capacity == 0) {
+        da->capacity = 32; 
+        da->items = calloc(32,sizeof(*da->items));
+        da->typesize = size;
+    }
+    assert(size == da->typesize);
+    if (da->count >= da->capacity) {
+        da->capacity *= DA_GROW_FACTOR;
+        da->items = realloc(da->items,size * da->capacity);
+    }
+    memcpy(da->items + (da->count * size), varptr, size);
+    da->count++;
 }
 
-void sb_clear(StringBuilder* sb) {
-    memset(sb->items, 0, sb->count);
-    sb->count = 0;
-}
-
-#define sb_append(sb, ...) \
-    sb__append(\
-            sb,\
-            sb_arrlit(__VA_ARGS__),\
-            sb_arrlen(sb_arrlit(__VA_ARGS__)))\
-
-#endif//__HCH_SB_H
-
-
-
-#endif//INCLUDE_STRING_BUILDER
 
 
 //
-// MAP (STRING)
+// QoL (im lazy)
 //
+#define DA_HEADER(T) \
+        T* items;\
+        size_t count, capacity, typesize;
 
-// Ultimately map is just a big array of keys, and we use 
-// fancy math to get the index into that array, if there is something,
-// we wanna get that data or pointer to it.
+#define da_loop(DA,I) for(size_t I = 0; I < DA.count; I++)
+#define da_get(DA) ((DA).items)
+
+#endif// da_append 
+#endif// __DA_H
+#ifndef __LINK_H
+#define __LINK_H
+
+#include <stdlib.h>  
+#include <stdio.h>   
+#include <string.h>  
+#include <assert.h>  
+
 //
-// So Map can be tied with any array as long 
-// as length of the array and map key count are equal.
-
-// For this reason map struct is just a "Map Header" that doesn't own any data
-// you use it with whatever you need to use it with.
-
-
-
-// TODO: introduce config macros or flags in the map header
-// to configure your prefered way of doing hashmap
-// MAYBE: use "linked" "list" as way to resolve collision
-
-// common hash functions
+// Link appendage (Linked List)
 //
-// > djb2 likes shifts: [5, 7, 13, 33]
+#ifndef li_append
 
-#ifdef INCLUDE_MAP
+#define li_append(L, I) do {\
+    if(!(L)) {(L) = (I); (L)->tail = (L);}\
+    else {\
+        void* item = (I);\
+        (L)->tail->next = item;\
+        (L)->tail = item;\
+    }\
+}while(0)
 
+#define li_foreach(LI, T, I, ...) do {\
+   T* next = (LI);\
+   T* prev = (LI); (void)prev; (void)next;\
+   while(next) {\
+       T* I = next;\
+       {__VA_ARGS__}\
+       prev = next;\
+       next = next->next;\
+   }\
+} while(0)
+
+#define li_defer(LI, T, ...) do {\
+   T* next = (LI);\
+   T* prev = (LI);\
+   while(next) {\
+       prev = next;\
+       next = next->next;\
+       {__VA_ARGS__}\
+       prev = 0;\
+   } (LI) = 0;\
+} while(0)
+
+#endif//li_append
+#endif//__LINK_H
 #ifndef __HCH_MAP_H
 #define __HCH_MAP_H
+
+#include <stdlib.h>  
+#include <stdio.h>   
+#include <string.h>  
+#include <assert.h>  
+#include <stdbool.h> 
 
 #ifndef MAPS_DEFAULT_INIT_SIZE
 #   define MAPS_DEFAULT_INIT_SIZE 2048
@@ -482,11 +346,6 @@ void                map_clear       (Map* m);
 #define maps_get    (M, S)                      maps_query   (M, map_key(S))
 #define maps_put    (M, S)                      maps_reserve (M, map_key(S))
 //      maps_resize (m, new_size, {CODE BLOCK}) /*macro*/
-
-
-
-
-#ifdef HCH_MAP_IMPLEMENTATION
 
 static inline unsigned long djb2(const char* str, size_t size, char shift) {
     unsigned long h = 5381;
@@ -643,8 +502,8 @@ long int map_query(Map m, MapKeySlice string) {
                               // desired key can't be found here since
                               // if it would exist, it would be inserted in 
                               // linear fassion with current key,
-                              // gap indicated end of this key lookup 
-                              // or buggy/corrputed key
+                              // gap indicated end of this key lookup sequence
+                              // or buggy/corrputed behaviour of the map
         if(key.count != len) continue;
         if (mks_eq(key, string))  
             return (long int)index;
@@ -657,44 +516,444 @@ long int map_query(Map m, MapKeySlice string) {
 #undef hf2
 }
 
-#endif//HCH_MAP_IMPLEMENTATION
 
 #endif//__HCH_MAP_H
 
-#endif//INCLUDE_MAP
+
+//
+// POOL datastructure
+//
+
+#include <stdlib.h>  
+#include <stdio.h>   
+#include <string.h>  
+#include <assert.h>  
+
+// TODO:? make it use not void* but user defined union/struct?
+
+#ifndef __HCH_POOL_H
+#define __HCH_POOL_H
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <string.h>
+
+
+// TODO: use inline __asm__(int3) to have a proper breakpoint 
+// instead of this old funny hack
+// cause segmentaion fault to be able to run gdb on breakpoint
+#ifdef DEBUG_SEGFAULT_ON_ASSERT
+#   define FAULT_TRIGGER \
+        *((int*)0) = 1 
+#endif
+
+#ifndef FAULT_TRIGGER
+#define FAULT_TRIGGER // does nothing 
+#endif
+
+#ifndef hch_assert
+#define hch_assert(COND,...) \
+    do { if (!(COND)) { \
+        fprintf(stderr,"Assertion at [%s:%s:%d]: ",__FILE__,__func__,__LINE__); \
+        fprintf(stderr,__VA_ARGS__); \
+        fprintf(stderr,"\n"); \
+        FAULT_TRIGGER;      \
+        fprintf(stderr, "NOTE: you can define FAULT_TRIGGER to enable gdb breakpoint\n");\
+        exit(1);            \
+    }} while(0)
+#endif
+
+typedef size_t              index_t;
+typedef unsigned char       bitmask8;
+
+#define INDEX_INVALID ((size_t)-1)
+
+typedef enum {
+	PoolState_allocated = 1,
+} PoolState;
+
+typedef struct {
+    size_t      typesize;
+    char*       type;
+
+    void*       data;
+    index_t*      free_indexes;
+    
+
+    void        (*destructor) (void*);
+    size_t      capacity;
+    size_t      count;
+    size_t      free_count;
+    size_t      max_size;
+} Pool;
+
+#ifndef POOL_MALLOC
+#   define POOL_MALLOC(S) malloc(S)
+#endif
+
+#ifndef POOL_FREE
+#   define POOL_FREE(P) free(P)
+#endif
+
+#ifndef POOL_REALLOC
+#   define POOL_REALLOC(P,S) realloc(P,S)
+#endif
+
+
+#ifndef IGNORE_RETURN
+#   define IGNORE_RETURN (void)
+#endif
+
+#define __POOL_typestring(T) #T
+
+#ifndef POOL_DEFAULT_CAPACITY
+#   define POOL_DEFAULT_CAPACITY 32
+#endif
+
+#define POOL_ITEM_POINTER(p,index) \
+    p->data + index * (p->typesize + sizeof(bitmask8));
 
 
 
+//      //
+/* API  */
+//      //
+
+#define     pool_new(T)                         pool__init(NULL, POOL_DEFAULT_CAPACITY, sizeof(T), __POOL_typestring(T))
+#define     pool_init(P,T,S)                    IGNORE_RETURN pool__init(P, S, sizeof(T), __POOL_typestring(T))
+void        pool_resize(Pool* p, size_t newsize);
+index_t     pool_reserve(Pool* p);
+void        pool_release(Pool* p, index_t i);
+void*       pool_refer(Pool* p, index_t i);
 
 
+Pool pool__init(Pool* self, size_t capacity, size_t typesize, char* type) {
+    const size_t data_sz_bytes = capacity * ( sizeof(bitmask8) + typesize );
+    const size_t idxs_sz_bytes = capacity * sizeof(index_t);
 
+    Pool new = {
+        .type = type,
+        .typesize = typesize,
+        .capacity = capacity,
+        .count = 0,
+        .free_count = 0,
+        .max_size = 0,
 
+        // alloc memory,
+        .data = POOL_MALLOC(data_sz_bytes),
+        .free_indexes = POOL_MALLOC(idxs_sz_bytes),
+    };
+
+    if (!self) {
+        return new;
+    } 
+
+    memcpy(self, &new, sizeof(new));
+    return *self;
+}
+
+void pool_free(Pool* p) {
+    free(p->data);
+    free(p->free_indexes);
+    memset(p,0,sizeof(*p));
+}
+
+void* pool_refer(Pool* p, index_t i) {
+    hch_assert(p, "Expected to have valid pointer got NULL");
+    hch_assert(p->data, "Expected to have valid data pointer initilized");
+    void* ptr = POOL_ITEM_POINTER(p,i);
+    bitmask8 state = *((bitmask8*)ptr);
+    return (state) ? ptr : NULL;
+}
+
+void pool_resize(Pool* p, size_t newsize) {
+    const size_t newsize_bytes = newsize * (sizeof(bitmask8) + p->typesize);
+    const size_t newsize_indexes_bytes = newsize * sizeof(index_t);
+
+    if (p->capacity == newsize) 
+        return;
+    else if (p->capacity > newsize) {
+        // TODO:
+        // impl destructor
+    } 
+ 
+    p->capacity     = newsize;
+    p->data         = POOL_REALLOC(p->data,         newsize_bytes           );
+    p->free_indexes = POOL_REALLOC(p->free_indexes, newsize_indexes_bytes   );
+}
+
+#define pool_append(P, VAR) \
+    pool__append(P, &(VAR), sizeof(VAR))
+
+index_t pool__append(Pool* p, void* data, size_t typesize) {
+    index_t i = pool_reserve(p);
+    if (i == INDEX_INVALID) 
+        return INDEX_INVALID;
+
+    hch_assert(typesize == p->typesize, 
+            "Expected to have a type that equal or less than pool typesize");
+    memcpy(pool_refer(p,i),data,typesize);
+    return i;
+}
+
+index_t pool_reserve(Pool* p) {
+    index_t index = INDEX_INVALID;
+    if (p->free_count > 0) {
+        index = p->free_indexes[p->free_count-1];
+        p->free_count--;
+    } else {
+        index = p->count;
+    }
+    //debug("Reserved id: %u\n",ptr);
+    hch_assert(index != INDEX_INVALID, "Failed to reserve entity");
+    hch_assert(p->count < p->capacity, "Attempt to buffer overflow");
+
+    bitmask8* state = POOL_ITEM_POINTER(p, index);
+    *state |= PoolState_allocated;
+
+    p->count++;
+    if (p->count > p->max_size) {
+        p->max_size = p->count;
+    }
+    return index;
+}
+
+void  pool_release(Pool* p, index_t i) {
+    if (p->count==0)
+        return;
+
+    hch_assert(i < p->capacity, "Attempt to access Out of Bounds");
+    bitmask8* state = POOL_ITEM_POINTER(p,i);
+
+    if (!(*state & PoolState_allocated))
+        return;
+ 
+    p->free_indexes[p->free_count] = i;
+    p->free_count++;
+
+    *state ^= PoolState_allocated;
+    p->count--;
+}
+
+#endif //__HCH_POOL_H
 
 
 //
-// STRING
+// TYPES
 //
 
-// NOTE: oldest header, a lot of yapping.
+#ifndef __HCH_TYPES_H
+#define __HCH_TYPES_H
 
-// TODO:
-// 	Struct for "namespace" use-case
-// 	Whishlist:
-// 		functions to convert from other types in HC headers:
-// 		- str_from_array(Array) -> String
-// 		- str_from_list(List<char>) -> String
-// 		- str_list_builder(List<char*>) -> String
 
-#ifdef INCLUDE_STRING
+#include <stdio.h>   
+#include <string.h>  
+#include <assert.h>  
+#include <stdbool.h> 
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdlib.h>
 
+typedef int8_t              i8;
+typedef int16_t             i16;
+typedef int32_t             i32;
+typedef int64_t             i64;
+typedef intmax_t            isize;
+
+typedef int8_t              s8;
+typedef int16_t             s16;
+typedef int32_t             s32;
+typedef int64_t             s64;
+typedef intmax_t            ssize;
+
+typedef uint8_t             u8;
+typedef uint16_t            u16;
+typedef uint32_t            u32;
+typedef uint64_t            u64;
+typedef size_t              usize;
+
+typedef float               f32;
+typedef double              f64;
+                              
+typedef const char*         istr;
+typedef char*               mstr;
+
+typedef size_t              index_t;
+typedef unsigned char       bitmask8;
+typedef unsigned short      bitmask16;
+typedef unsigned int        bitmask32;
+typedef uint64_t            bitmask64;
+
+#endif // __HCH_TYPES_H
+
+//
+// MACROS
+//
+
+#define arrlen(a)           (sizeof(a)/sizeof(a[0]))
+#define cast(v, T)          ((T)v)
+#define transmute(v, T)     *((T*)&(v))
+#define zeroed(v)           memset(&(v), 0, sizeof(v))
+#define unused(v)           ((void) (v))
+
+#ifndef max
+	#define max(A,B) (A > B) ? A : B
+#endif
+
+#ifndef min
+	#define min(A,B) (A < B) ? A : B
+#endif
+
+#ifndef loop
+	#define loop(I,N) for(size_t I = 0; I < (N); I++)
+#endif
+
+#ifndef loopt
+	#define loopt(TI,N) for(TI = 0; I < (N); I++)
+#endif
+
+// cause segmentaion fault to be able to run gdb on breakpoint
+#ifdef DEBUG_SEGFAULT_ON_ASSERT
+#   define FAULT_TRIGGER \
+        *((int*)0) = 1 
+#endif
+
+#ifndef FAULT_TRIGGER
+#define FAULT_TRIGGER // does nothing 
+#endif
+
+#ifndef hch_assert
+#define hch_assert(COND,...) \
+    do { if (!(COND)) { \
+        fprintf(stderr,"Assertion at [%s:%s:%d]: ",__FILE__,__func__,__LINE__); \
+        fprintf(stderr,__VA_ARGS__); \
+        fprintf(stderr,"\n"); \
+        FAULT_TRIGGER;      \
+        fprintf(stderr, "NOTE: you can define FAULT_TRIGGER to enable gdb breakpoint\n");\
+        exit(1);            \
+    }} while(0)
+#endif
+/*
+   String Builder (Nob style)
+*/
+
+#include <stdlib.h>  
+#include <stdio.h>   
+#include <string.h>  
+#include <assert.h>  
+#include <stdbool.h> 
+
+#ifndef __HCH_SB_H
+#define __HCH_SB_H
+
+typedef struct {
+    // transmutable -> DA , string
+    char*  items;
+    size_t count, capacity;
+
+    const char* spacer;
+} StringBuilder;
+
+#define sb_arrlit(...)          ((const char*[]) {__VA_ARGS__})
+#define sb_arrlen(arr)          (sizeof(arr) / sizeof((arr)[0]))
+#define sb_arrlit_len(...)      (sb_arrlen((__VA_ARGS__)))
+
+#define sb_min(a,b) ((a) > (b))? (b) : (a)
+#define sb_max(a,b) ((a) < (b))? (b) : (a)
+
+// TODO: move this somewhere else higher up
+// it can be wiedly used.
+void* recalloc(void* ptr, size_t prev_size, size_t size) {
+    void* new_ptr = calloc(size, 1);
+    if(ptr) {
+        memcpy(new_ptr, ptr, prev_size);
+        free(ptr);
+    }
+    return new_ptr;
+}
+
+void sb__append(StringBuilder* sb, const char** items, size_t count) {
+    if (!count) return;
+    size_t append_size = 0;
+    size_t spacer_size = 0;
+
+    if (sb->spacer) spacer_size = strlen(sb->spacer); 
+
+    for(size_t i = 0; i < count; i++) {
+        if (!items[i]) continue;
+        append_size += strlen(items[i]);
+        if (i != count - 1 || i) 
+            append_size += spacer_size;
+    }
+    // null terminator
+    if(append_size) append_size++;
+
+    if (!sb->items || !sb->capacity) {
+        sb->capacity = 32;
+        sb->items = calloc(32, 1);
+    }
+    if (sb->count + append_size >= sb->capacity) {
+        size_t new_size = sb_max(sb->capacity*2, sb->capacity + append_size);
+        sb->items = recalloc(sb->items, sb->capacity, new_size);
+        sb->capacity = new_size;
+    }
+
+    for(size_t i = 0; i < count; i++)  {
+        if (!items[i]) continue;
+        size_t len = strlen(items[i]);
+        if(items[i]) {
+            memcpy(sb->items + sb->count, items[i], len);
+            sb->count += len;
+            
+            if (spacer_size && (i != count-1)) {
+                memcpy(sb->items + sb->count, sb->spacer, spacer_size);
+                sb->count += spacer_size;
+            }
+
+        }
+    }
+}
+
+void sb_appendf(StringBuilder* sb, const char* fmt, ...) {
+    va_list args, args_len;
+    va_start(args, fmt);
+    va_copy(args_len, args);
+    size_t size = vsnprintf(0,0,fmt,args_len);
+    va_end(args_len);
+
+    const char* temp = calloc(size+1,1);
+    vsnprintf((char*)temp, size+1, fmt, args);
+    sb__append(sb, &temp, 1);
+    free((void*)temp);
+    
+    va_end(args);
+}
+
+void sb_clear(StringBuilder* sb) {
+    memset(sb->items, 0, sb->count);
+    sb->count = 0;
+}
+
+#define sb_append(sb, ...) \
+    sb__append(\
+            sb,\
+            sb_arrlit(__VA_ARGS__),\
+            sb_arrlen(sb_arrlit(__VA_ARGS__)))\
+
+#endif//__HCH_SB_H
 #ifndef __HCH_STRING_H
 #define __HCH_STRING_H
 
+#include <stdlib.h>  
+#include <stdio.h>   
+#include <string.h>  
+#include <assert.h>  
+#include <stdbool.h> 
 
 #define STR_MAX_REFER_SIZE 256
 #define FULL_LENGTH 0
 #define STR_NOPATTERN -1
-
 
 // Dynamic array - "da", can be
 // transmuted into String directly
@@ -795,8 +1054,6 @@ bool	str_memncmp(char* src, char* cmp, size_t block_sizes[2], size_t pos, size_t
 //
 // IMPLEMENTATION
 //
-
-#ifdef HCH_STR_IMPLEMENTATION
 
 String str_prealloc(size_t cap) {
 	return (String) {
@@ -1173,252 +1430,5 @@ void str_free(String* s) {
 	s->ptr = NULL;
 }
 
-#endif // HCH_STR_IMPLEMENTATION
 
 #endif // __HCH_STRING_H
-
-#endif // INCLUDE_STRING
-
-
-
-//
-// ARGS - argument parsing
-//
-
-// TODO: add flags that don't need '--'
-// TODO: add support '--flag=<VALUE>'
-
-#ifdef INCLUDE_ARGS
-
-#ifndef __HCH_ARGS_H
-#define __HCH_ARGS_H
-
-typedef struct {
-    char**          items;
-    int             count;
-} ArgsSlice;
-
-bool arg_str_is_flag(const char* str) {
-    return str && strlen(str) >= 2 && (strncmp(str,"--", 2)==0 || *str == '-') ;
-}
-
-int arg_flag(ArgsSlice args, const char* flag) {
-    assert(flag);
-    for(int i = 0; i < args.count; i++) {
-        const char* s = args.items[i];
-        if (arg_str_is_flag(s)) 
-            if (*s == '-' || (*s == '-' && strcmp((s+2), flag)==0)) 
-                return i;
-    }
-    return 0;
-}
-
-int arg_list(ArgsSlice args, const char* flag, ArgsSlice* out) {
-    int b = 0;
-    if((b = arg_flag(args,flag))) {
-        if (b+1 < args.count)   out->items = args.items + b+1;
-        else                    out->items = 0;
-
-        for(int i = b+1; i < args.count; i++) {
-            if(arg_str_is_flag(args.items[i])) break;
-                out->count++;
-        }
-    }
-    return b;
-}
-
-#endif//__HCH_ARGS_H
-
-#endif//INCLUDE_ARGS
-
-
-
-//
-// POOL datastructure
-//
-
-// TODO:? make it use not void* but user defined union/struct?
-
-#ifdef INCLUDE_POOL
-
-#ifndef __HCH_POOL_H
-#define __HCH_POOL_H
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <string.h>
-
-#define INDEX_INVALID ((size_t)-1)
-
-
-typedef enum {
-	PoolState_allocated = 1,
-} PoolState;
-
-typedef struct {
-    size_t      typesize;
-    char*       type;
-
-    void*       data;
-    index_t*      free_indexes;
-    
-
-    void        (*destructor) (void*);
-    size_t      capacity;
-    size_t      count;
-    size_t      free_count;
-    size_t      max_size;
-} Pool;
-
-#ifndef POOL_MALLOC
-#   define POOL_MALLOC(S) malloc(S)
-#endif
-
-#ifndef POOL_FREE
-#   define POOL_FREE(P) free(P)
-#endif
-
-#ifndef POOL_REALLOC
-#   define POOL_REALLOC(P,S) realloc(P,S)
-#endif
-
-
-#ifndef IGNORE_RETURN
-#   define IGNORE_RETURN (void)
-#endif
-
-#define __POOL_typestring(T) #T
-
-#ifndef POOL_DEFAULT_CAPACITY
-#   define POOL_DEFAULT_CAPACITY 32
-#endif
-
-#define POOL_ITEM_POINTER(p,index) \
-    p->data + index * (p->typesize + sizeof(bitmask8));
-
-
-
-//      //
-/* API  */
-//      //
-
-#define     pool_new(T)                         pool__init(NULL, POOL_DEFAULT_CAPACITY, sizeof(T), __POOL_typestring(T))
-#define     pool_init(P,T,S)                    IGNORE_RETURN pool__init(P, S, sizeof(T), __POOL_typestring(T))
-void        pool_resize(Pool* p, size_t newsize);
-index_t     pool_reserve(Pool* p);
-void        pool_release(Pool* p, index_t i);
-void*       pool_refer(Pool* p, index_t i);
-
-
-Pool pool__init(Pool* self, size_t capacity, size_t typesize, char* type) {
-    const size_t data_sz_bytes = capacity * ( sizeof(bitmask8) + typesize );
-    const size_t idxs_sz_bytes = capacity * sizeof(index_t);
-
-    Pool new = {
-        .type = type,
-        .typesize = typesize,
-        .capacity = capacity,
-        .count = 0,
-        .free_count = 0,
-        .max_size = 0,
-
-        // alloc memory,
-        .data = POOL_MALLOC(data_sz_bytes),
-        .free_indexes = POOL_MALLOC(idxs_sz_bytes),
-    };
-
-    if (!self) {
-        return new;
-    } 
-
-    memcpy(self, &new, sizeof(new));
-    return *self;
-}
-
-void pool_free(Pool* p) {
-    free(p->data);
-    free(p->free_indexes);
-    memset(p,0,sizeof(*p));
-}
-
-void* pool_refer(Pool* p, index_t i) {
-    hch_assert(p, "Expected to have valid pointer got NULL");
-    hch_assert(p->data, "Expected to have valid data pointer initilized");
-    void* ptr = POOL_ITEM_POINTER(p,i);
-    bitmask8 state = *((bitmask8*)ptr);
-    return (state) ? ptr : NULL;
-}
-
-void pool_resize(Pool* p, size_t newsize) {
-    const size_t newsize_bytes = newsize * (sizeof(bitmask8) + p->typesize);
-    const size_t newsize_indexes_bytes = newsize * sizeof(index_t);
-
-    if (p->capacity == newsize) 
-        return;
-    else if (p->capacity > newsize) {
-        // TODO:
-        // impl destructor
-    } 
- 
-    p->capacity     = newsize;
-    p->data         = POOL_REALLOC(p->data,         newsize_bytes           );
-    p->free_indexes = POOL_REALLOC(p->free_indexes, newsize_indexes_bytes   );
-}
-
-#define pool_append(P, VAR) \
-    pool__append(P, &(VAR), sizeof(VAR))
-
-index_t pool__append(Pool* p, void* data, size_t typesize) {
-    index_t i = pool_reserve(p);
-    if (i == INDEX_INVALID) 
-        return INDEX_INVALID;
-
-    hch_assert(typesize == p->typesize, 
-            "Expected to have a type that equal or less than pool typesize");
-    memcpy(pool_refer(p,i),data,typesize);
-    return i;
-}
-
-index_t pool_reserve(Pool* p) {
-    index_t index = INDEX_INVALID;
-    if (p->free_count > 0) {
-        index = p->free_indexes[p->free_count-1];
-        p->free_count--;
-    } else {
-        index = p->count;
-    }
-    //debug("Reserved id: %u\n",ptr);
-    hch_assert(index != INDEX_INVALID, "Failed to reserve entity");
-    hch_assert(p->count < p->capacity, "Attempt to buffer overflow");
-
-    bitmask8* state = POOL_ITEM_POINTER(p, index);
-    *state |= PoolState_allocated;
-
-    p->count++;
-    if (p->count > p->max_size) {
-        p->max_size = p->count;
-    }
-    return index;
-}
-
-void  pool_release(Pool* p, index_t i) {
-    if (p->count==0)
-        return;
-
-    hch_assert(i < p->capacity, "Attempt to access Out of Bounds");
-    bitmask8* state = POOL_ITEM_POINTER(p,i);
-
-    if (!(*state & PoolState_allocated))
-        return;
- 
-    p->free_indexes[p->free_count] = i;
-    p->free_count++;
-
-    *state ^= PoolState_allocated;
-    p->count--;
-}
-
-#endif //__HCH_POOL_H
-    
-#endif// INCLUDE_POOL

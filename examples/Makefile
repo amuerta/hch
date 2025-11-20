@@ -1,4 +1,25 @@
-run: sb
+run: trie
+
+run-all: da list_and_arena sb maps pol args arena
+
+build-header:
+	cat ../src/*.h > ../hc.h
+
+da:
+	cc -o ./exec/da da.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./exec/da
+
+trie:
+	cc -o ./exec/trie trie.c -ggdb -pg -Wextra -Wall
+	./exec/trie
+
+markdown:
+	cc -o ./exec/markdown markdown.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./exec/markdown
+
+list_and_arena:
+	cc -o ./exec/list_and_arena list_and_arena.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./exec/list_and_arena
 
 ansi:
 	cc -o ./exec/ansi ansi.c -ggdb -pg -Wextra -Wall -fsanitize=address
