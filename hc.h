@@ -271,20 +271,22 @@ void __da_append_generic(void* da_ptr, void* varptr, size_t size) {
 #define li_append(L, I) do {\
     if(!(L)) {(L) = (I); (L)->tail = (L);}\
     else {\
-        void* item = (I);\
-        (L)->tail->next = item;\
-        (L)->tail = item;\
+        void* __list_time__ = (I);\
+        (L)->tail->next = __list_item__;\
+        (L)->tail = __list_item__;\
     }\
 }while(0)
 
+#define li_next(LI) ((LI)->next)
+
 #define li_foreach(LI, T, I, ...) do {\
-   T* next = (LI);\
-   T* prev = (LI); (void)prev; (void)next;\
+   T* __next__ = (LI);\
+   T* __prev__ = (LI); (void)__prev__; (void)__next__;\
    while(next) {\
-       T* I = next;\
+       T* I = __next__;\
        {__VA_ARGS__}\
-       prev = next;\
-       next = next->next;\
+       prev = __next__;\
+       next = __next__->next;\
    }\
 } while(0)
 
