@@ -1,9 +1,14 @@
-run: trie
+run: bitmasking
 
 run-all: da list_and_arena sb maps pol args arena
 
 build-header:
 	cat ../src/*.h > ../hc.h
+
+
+bitmasking:
+	cc -o ./exec/bitmasking bitmasking.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./exec/bitmasking
 
 da:
 	cc -o ./exec/da da.c -ggdb -pg -Wextra -Wall -fsanitize=address

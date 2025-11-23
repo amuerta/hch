@@ -1,11 +1,9 @@
-
-
 //
-// TYPES
+// PRELUDE
 //
 
-#ifndef __HCH_TYPES_H
-#define __HCH_TYPES_H
+#ifndef __HCH_PRELUDE_H
+#define __HCH_PRELUDE_H
 
 
 #include <stdio.h>   
@@ -46,7 +44,7 @@ typedef unsigned short      bitmask16;
 typedef unsigned int        bitmask32;
 typedef uint64_t            bitmask64;
 
-#endif // __HCH_TYPES_H
+#endif // __HCH_PRELUDE_H
 
 //
 // MACROS
@@ -57,6 +55,7 @@ typedef uint64_t            bitmask64;
 #define transmute(v, T)     *((T*)&(v))
 #define zeroed(v)           memset(&(v), 0, sizeof(v))
 #define unused(v)           ((void) (v))
+#define BREAKPOINT()        __asm__("int3")
 
 #ifndef max
 	#define max(A,B) (A > B) ? A : B
@@ -74,14 +73,43 @@ typedef uint64_t            bitmask64;
 	#define loopt(TI,N) for(TI = 0; I < (N); I++)
 #endif
 
-// cause segmentaion fault to be able to run gdb on breakpoint
-#ifdef DEBUG_SEGFAULT_ON_ASSERT
-#   define FAULT_TRIGGER \
-        *((int*)0) = 1 
+#ifndef range
+#   define range(n, min, max)  ((n)>=(min) && (n)<=(max))
 #endif
 
-#ifndef FAULT_TRIGGER
+#ifndef clamp
+#   define clamp(n, min, max)  \
+    ((n) < (min)) ? (min) : ((n) > (max) ? (max) : (n)) 
+#endif
+
+//
+// bitmasking
+//
+
+#ifndef HCH_FULL_BITMASK_PREFIX
+#   define bm_toggle(N, M) ((N) ^ (M))
+#   define bm_set(N, M)    ((N) | (M))
+#   define bm_clear(N, M)  ((N) & (~(M)))
+#   define bm_get_chunk(m, off, size) __bm_get_chunk((m),(off),(sz))
+#else
+#   define bitmask_toggle(N, M) ((N) ^ (M))
+#   define bitmask_set(N, M)    ((N) | (M))
+#   define bitmask_clear(N, M)  ((N) & (~(M)))
+#   define bitmask_get_chunk(m, off, size) __bm_get_chunk((m),(off),(sz))
+#endif
+
+u64 __bm_get_chunk(u64 mask, u8 offset, u8 size) {
+    int select_mask = 0;
+    for(int i = 0; i < size; i++) select_mask |= (1 << i);
+    return (mask >> offset) & select_mask;
+}
+
+// custom assert
+
+#ifdef  HCH_ASSERT_NO_BREAKPOINT
 #define FAULT_TRIGGER // does nothing 
+#else
+#define FAULT_TRIGGER __asm__("int3")
 #endif
 
 #ifndef hch_assert
@@ -91,7 +119,6 @@ typedef uint64_t            bitmask64;
         fprintf(stderr,__VA_ARGS__); \
         fprintf(stderr,"\n"); \
         FAULT_TRIGGER;      \
-        fprintf(stderr, "NOTE: you can define FAULT_TRIGGER to enable gdb breakpoint\n");\
         exit(1);            \
     }} while(0)
 #endif
