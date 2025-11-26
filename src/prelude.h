@@ -49,7 +49,6 @@ typedef uint64_t            bitmask64;
 // MACROS
 //
 
-#ifndef HCH_STRIP_MACRO_PREFIX
 # define hc_max(A,B)            (A > B) ? A : B
 # define hc_min(A,B)            (A < B) ? A : B
 # define hc_loop(I,N)           for(size_t I = 0; I < (N); I++)
@@ -66,8 +65,8 @@ typedef uint64_t            bitmask64;
 # define hc_roptr(v)            ((const void*) v)
 # define hc_cmp(l,r)            (memcmp(&(l),&(r),hc_min(sizeof(l),sizeof(r)))==0)
 # define hc_BREAKPOINT()        __asm__("int3")
-#else
 
+#ifdef HCH_STRIP_MACRO_PREFIX
 # define arrlen(a)       hc_arrlen(a) 
 # define cast(v, T)      hc_cast(v, T)     
 # define transmute(v, T) hc_transmute(v, T)
@@ -83,7 +82,6 @@ typedef uint64_t            bitmask64;
 # define loopt(TI,N)        hc_loopt(TI,N)       
 # define range(n, min, max) hc_range(n, min, max)
 # define clamp(n, min, max) hc_clamp(n, min, max)
-
 #endif//HCH_STRIP_PREFIX
 
 //
