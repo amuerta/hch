@@ -50,52 +50,57 @@ typedef uint64_t            bitmask64;
 // MACROS
 //
 
-#define arrlen(a)           (sizeof(a)/sizeof(a[0]))
-#define cast(v, T)          ((T)v)
-#define transmute(v, T)     *((T*)&(v))
-#define zeroed(v)           memset(&(v), 0, sizeof(v))
-#define unused(v)           ((void) (v))
-#define BREAKPOINT()        __asm__("int3")
+#ifndef HCH_STRIP_MACRO_PREFIX
+# define hc_max(A,B)            (A > B) ? A : B
+# define hc_min(A,B)            (A < B) ? A : B
+# define hc_loop(I,N)           for(size_t I = 0; I < (N); I++)
+# define hc_loopt(TI,N)         for(TI = 0; I < (N); I++)
+# define hc_range(n, min, max)  ((n)>=(min) && (n)<=(max))
+# define hc_clamp(n, min, max)  \
+     ((n) < (min)) ? (min) : ((n) > (max) ? (max) : (n)) 
 
-#ifndef max
-	#define max(A,B) (A > B) ? A : B
-#endif
+# define hc_arrlen(a)           (sizeof(a)/sizeof(a[0]))
+# define hc_cast(v, T)          ((T)v)
+# define hc_transmute(v, T)     *((T*)&(v))
+# define hc_zeroed(v)           memset(&(v), 0, sizeof(v))
+# define hc_unused(v)           ((void) (v))
+# define hc_roptr(v)            ((const void*) v)
+# define hc_cmp(l,r)            (memcmp(&(l),&(r),hc_min(sizeof(l),sizeof(r)))==0)
+# define hc_BREAKPOINT()        __asm__("int3")
+#else
 
-#ifndef min
-	#define min(A,B) (A < B) ? A : B
-#endif
+# define arrlen(a)       hc_arrlen(a) 
+# define cast(v, T)      hc_cast(v, T)     
+# define transmute(v, T) hc_transmute(v, T)
+# define zeroed(v)       hc_zeroed(v)      
+# define unused(v)       hc_unused(v)      
+# define roptr(v)        hc_roptr(v)       
+# define cmp(l,r)        hc_cmp(l,r)       
+# define BREAKPOINT()    hc_BREAKPOINT()   
 
-#ifndef loop
-	#define loop(I,N) for(size_t I = 0; I < (N); I++)
-#endif
+# define max(A,B)           hc_max(A,B)          
+# define min(A,B)           hc_min(A,B)          
+# define loop(I,N)          hc_loop(I,N)         
+# define loopt(TI,N)        hc_loopt(TI,N)       
+# define range(n, min, max) hc_range(n, min, max)
+# define clamp(n, min, max) hc_clamp(n, min, max)
 
-#ifndef loopt
-	#define loopt(TI,N) for(TI = 0; I < (N); I++)
-#endif
-
-#ifndef range
-#   define range(n, min, max)  ((n)>=(min) && (n)<=(max))
-#endif
-
-#ifndef clamp
-#   define clamp(n, min, max)  \
-    ((n) < (min)) ? (min) : ((n) > (max) ? (max) : (n)) 
-#endif
+#endif//HCH_STRIP_PREFIX
 
 //
 // bitmasking
 //
 
 #ifndef HCH_FULL_BITMASK_PREFIX
-#   define bm_toggle(N, M) ((N) ^ (M))
-#   define bm_set(N, M)    ((N) | (M))
-#   define bm_clear(N, M)  ((N) & (~(M)))
-#   define bm_get_chunk(m, off, size) __bm_get_chunk((m),(off),(sz))
+#   define bm_toggle(N, M)              ((N) ^ (M))
+#   define bm_set(N, M)                 ((N) | (M))
+#   define bm_clear(N, M)               ((N) & (~(M)))
+#   define bm_get_chunk(m, off, size)   __bm_get_chunk((m),(off),(sz))
 #else
-#   define bitmask_toggle(N, M) ((N) ^ (M))
-#   define bitmask_set(N, M)    ((N) | (M))
-#   define bitmask_clear(N, M)  ((N) & (~(M)))
-#   define bitmask_get_chunk(m, off, size) __bm_get_chunk((m),(off),(sz))
+#   define bitmask_toggle(N, M)             ((N) ^ (M))
+#   define bitmask_set(N, M)                ((N) | (M))
+#   define bitmask_clear(N, M)              ((N) & (~(M)))
+#   define bitmask_get_chunk(m, off, size)  __bm_get_chunk((m),(off),(sz))
 #endif
 
 u64 __bm_get_chunk(u64 mask, u8 offset, u8 size) {
@@ -121,4 +126,6 @@ u64 __bm_get_chunk(u64 mask, u8 offset, u8 size) {
         FAULT_TRIGGER;      \
         exit(1);            \
     }} while(0)
-#endif
+
+
+#endif // __HCH_PRELUDE_H
