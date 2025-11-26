@@ -1,5 +1,3 @@
-#define INCLUDE_ARENA
-#define HCH_ARENA_IMPLEMENTATION
 #include "../hc.h"
 
 typedef struct People {

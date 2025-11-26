@@ -440,7 +440,7 @@ String* str_split(String src, char divisor, size_t* count) {
 	String  item = str_prealloc(32);
 	String* items = 0;
 
-	loop(i, src.len) {
+	hc_loop(i, src.len) {
 		bool slice_eq = src.ptr[i] == divisor;
 		bool trail_str =  ( !str_is_empty(item) && i == src.len-1);
 
@@ -467,7 +467,7 @@ String* str_split(String src, char divisor, size_t* count) {
 
 void str_print_fmt(String s, char* pref, char* pofx) {
 	if (pref) printf("%s",pref);
-	loop(i,s.len) {
+	hc_loop(i,s.len) {
 		printf("%c",s.ptr[i]);
 	}
 	if (pofx) printf("%s",pofx);

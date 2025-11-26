@@ -173,7 +173,6 @@ int arg_list(ArgsSlice args, const char* flag, ArgsSlice* out) {
     DYNAMIC ARRAY
 */
 
-
 #ifndef __DA_H
 #define __DA_H
 
@@ -202,12 +201,21 @@ int arg_list(ArgsSlice args, const char* flag, ArgsSlice* out) {
 //  This way you can use da_append outside of C, 
 //  its pretty dirty with `void*` but you can create interfaces
 //  in pretty much any other language other than C, or use macros of any kind.
-#define DA_GROW_FACTOR 2
+#ifndef DA_GROW_FACTOR
+#   define DA_GROW_FACTOR 2
+#endif
+
+
+#ifndef DA_START_CAPACITY
+#   define DA_START_CAPACITY 32
+#endif
 
 #ifdef DA_LINKABLE
-#   define da_append(DA, VAR) __da_append_generic(&((DA)->items), &(VAR), sizeof((VAR)));
+#   define da_append(DA, VAR) \
+        __da_append_generic(&((DA)->items), &(VAR), sizeof((VAR)));
 #else
-#   define da_append(DA, VAR) __da_append_macro((DA), (VAR));
+#   define da_append(DA, VAR) \
+        __da_append_macro((DA), (VAR));
 #endif
 
 // generic "interface"
@@ -217,7 +225,10 @@ typedef struct {
 } DaGeneric;
 
 #define __da_append_macro(DA, VAR) do { \
-    if ((DA)->capacity == 0) {(DA)->capacity = 32; (DA)->items = calloc(32,sizeof(*(DA)->items));}\
+    if ((DA)->capacity == 0) {\
+        (DA)->capacity = DA_START_CAPACITY;\
+        (DA)->items = calloc(DA_START_CAPACITY,sizeof(*(DA)->items));\
+    }\
     if ((DA)->count >= (DA)->capacity) {\
         (DA)->capacity *= DA_GROW_FACTOR;\
         (DA)->items = realloc((DA)->items,sizeof(*(DA)->items) * (DA)->capacity);\
@@ -228,8 +239,8 @@ typedef struct {
 void __da_append_generic(void* da_ptr, void* varptr, size_t size) {
     DaGeneric* da = da_ptr;
     if (da->capacity == 0) {
-        da->capacity = 32; 
-        da->items = calloc(32,sizeof(*da->items));
+        da->capacity = DA_START_CAPACITY; 
+        da->items = calloc(DA_START_CAPACITY ,sizeof(*da->items));
         da->typesize = size;
     }
     assert(size == da->typesize);
@@ -249,14 +260,18 @@ void __da_append_generic(void* da_ptr, void* varptr, size_t size) {
 #define DA_HEADER(T) \
         T* items;\
         size_t count, capacity, typesize;
+#define DA_HEAD(T) DA_HEADER(T)
+#define DA_IMPLEMENT(T) DA_HEADER(T)
 
 #define da_loop(DA,I) for(size_t I = 0; I < DA.count; I++)
+
+// in case i ever change API, if you use da_get, you should be fine.
 #define da_get(DA) ((DA).items)
 
 #endif// da_append 
 #endif// __DA_H
-#ifndef __LINK_H
-#define __LINK_H
+#ifndef __LIST_H
+#define __LIST_H
 
 #include <stdlib.h>  
 #include <stdio.h>   
@@ -264,14 +279,14 @@ void __da_append_generic(void* da_ptr, void* varptr, size_t size) {
 #include <assert.h>  
 
 //
-// Link appendage (Linked List)
+// Linked List
 //
 #ifndef li_append
 
 #define li_append(L, I) do {\
     if(!(L)) {(L) = (I); (L)->tail = (L);}\
     else {\
-        void* __list_time__ = (I);\
+        void* __list_item__ = (I);\
         (L)->tail->next = __list_item__;\
         (L)->tail = __list_item__;\
     }\
@@ -282,22 +297,22 @@ void __da_append_generic(void* da_ptr, void* varptr, size_t size) {
 #define li_foreach(LI, T, I, ...) do {\
    T* __next__ = (LI);\
    T* __prev__ = (LI); (void)__prev__; (void)__next__;\
-   while(next) {\
+   while(__next__) {\
        T* I = __next__;\
        {__VA_ARGS__}\
-       prev = __next__;\
-       next = __next__->next;\
+       __prev__ = __next__;\
+       __next__ = __next__->next;\
    }\
 } while(0)
 
 #define li_defer(LI, T, ...) do {\
-   T* next = (LI);\
-   T* prev = (LI);\
-   while(next) {\
-       prev = next;\
-       next = next->next;\
+   T* __next__ = (LI);\
+   T* __prev__ = (LI);\
+   while(__next__) {\
+       __prev__ = __next__;\
+       __next__ = __next__->next;\
        {__VA_ARGS__}\
-       prev = 0;\
+       __prev__ = 0;\
    } (LI) = 0;\
 } while(0)
 
@@ -545,13 +560,12 @@ long int map_query(Map m, MapKeySlice string) {
 // TODO: use inline __asm__(int3) to have a proper breakpoint 
 // instead of this old funny hack
 // cause segmentaion fault to be able to run gdb on breakpoint
-#ifdef DEBUG_SEGFAULT_ON_ASSERT
-#   define FAULT_TRIGGER \
-        *((int*)0) = 1 
-#endif
-
 #ifndef FAULT_TRIGGER
-#define FAULT_TRIGGER // does nothing 
+#   ifdef  HCH_ASSERT_NO_BREAKPOINT
+#       define FAULT_TRIGGER // does nothing 
+#   else
+#       define FAULT_TRIGGER __asm__("int3")
+#   endif
 #endif
 
 #ifndef hch_assert
@@ -561,11 +575,9 @@ long int map_query(Map m, MapKeySlice string) {
         fprintf(stderr,__VA_ARGS__); \
         fprintf(stderr,"\n"); \
         FAULT_TRIGGER;      \
-        fprintf(stderr, "NOTE: you can define FAULT_TRIGGER to enable gdb breakpoint\n");\
         exit(1);            \
     }} while(0)
 #endif
-
 typedef size_t              index_t;
 typedef unsigned char       bitmask8;
 
@@ -739,14 +751,12 @@ void  pool_release(Pool* p, index_t i) {
 }
 
 #endif //__HCH_POOL_H
-
-
 //
-// TYPES
+// PRELUDE
 //
 
-#ifndef __HCH_TYPES_H
-#define __HCH_TYPES_H
+#ifndef __HCH_PRELUDE_H
+#define __HCH_PRELUDE_H
 
 
 #include <stdio.h>   
@@ -787,42 +797,78 @@ typedef unsigned short      bitmask16;
 typedef unsigned int        bitmask32;
 typedef uint64_t            bitmask64;
 
-#endif // __HCH_TYPES_H
 
 //
 // MACROS
 //
 
-#define arrlen(a)           (sizeof(a)/sizeof(a[0]))
-#define cast(v, T)          ((T)v)
-#define transmute(v, T)     *((T*)&(v))
-#define zeroed(v)           memset(&(v), 0, sizeof(v))
-#define unused(v)           ((void) (v))
+#ifndef HCH_STRIP_MACRO_PREFIX
+# define hc_max(A,B)            (A > B) ? A : B
+# define hc_min(A,B)            (A < B) ? A : B
+# define hc_loop(I,N)           for(size_t I = 0; I < (N); I++)
+# define hc_loopt(TI,N)         for(TI = 0; I < (N); I++)
+# define hc_range(n, min, max)  ((n)>=(min) && (n)<=(max))
+# define hc_clamp(n, min, max)  \
+     ((n) < (min)) ? (min) : ((n) > (max) ? (max) : (n)) 
 
-#ifndef max
-	#define max(A,B) (A > B) ? A : B
+# define hc_arrlen(a)           (sizeof(a)/sizeof(a[0]))
+# define hc_cast(v, T)          ((T)v)
+# define hc_transmute(v, T)     *((T*)&(v))
+# define hc_zeroed(v)           memset(&(v), 0, sizeof(v))
+# define hc_unused(v)           ((void) (v))
+# define hc_roptr(v)            ((const void*) v)
+# define hc_cmp(l,r)            (memcmp(&(l),&(r),hc_min(sizeof(l),sizeof(r)))==0)
+# define hc_BREAKPOINT()        __asm__("int3")
+#else
+
+# define arrlen(a)       hc_arrlen(a) 
+# define cast(v, T)      hc_cast(v, T)     
+# define transmute(v, T) hc_transmute(v, T)
+# define zeroed(v)       hc_zeroed(v)      
+# define unused(v)       hc_unused(v)      
+# define roptr(v)        hc_roptr(v)       
+# define cmp(l,r)        hc_cmp(l,r)       
+# define BREAKPOINT()    hc_BREAKPOINT()   
+
+# define max(A,B)           hc_max(A,B)          
+# define min(A,B)           hc_min(A,B)          
+# define loop(I,N)          hc_loop(I,N)         
+# define loopt(TI,N)        hc_loopt(TI,N)       
+# define range(n, min, max) hc_range(n, min, max)
+# define clamp(n, min, max) hc_clamp(n, min, max)
+
+#endif//HCH_STRIP_PREFIX
+
+//
+// bitmasking
+//
+
+#ifndef HCH_FULL_BITMASK_PREFIX
+#   define bm_toggle(N, M)              ((N) ^ (M))
+#   define bm_set(N, M)                 ((N) | (M))
+#   define bm_clear(N, M)               ((N) & (~(M)))
+#   define bm_get_chunk(m, off, size)   __bm_get_chunk((m),(off),(sz))
+#else
+#   define bitmask_toggle(N, M)             ((N) ^ (M))
+#   define bitmask_set(N, M)                ((N) | (M))
+#   define bitmask_clear(N, M)              ((N) & (~(M)))
+#   define bitmask_get_chunk(m, off, size)  __bm_get_chunk((m),(off),(sz))
 #endif
 
-#ifndef min
-	#define min(A,B) (A < B) ? A : B
-#endif
+u64 __bm_get_chunk(u64 mask, u8 offset, u8 size) {
+    int select_mask = 0;
+    for(int i = 0; i < size; i++) select_mask |= (1 << i);
+    return (mask >> offset) & select_mask;
+}
 
-#ifndef loop
-	#define loop(I,N) for(size_t I = 0; I < (N); I++)
-#endif
-
-#ifndef loopt
-	#define loopt(TI,N) for(TI = 0; I < (N); I++)
-#endif
-
-// cause segmentaion fault to be able to run gdb on breakpoint
-#ifdef DEBUG_SEGFAULT_ON_ASSERT
-#   define FAULT_TRIGGER \
-        *((int*)0) = 1 
-#endif
+// custom assert
 
 #ifndef FAULT_TRIGGER
-#define FAULT_TRIGGER // does nothing 
+#   ifdef  HCH_ASSERT_NO_BREAKPOINT
+#       define FAULT_TRIGGER // does nothing 
+#   else
+#       define FAULT_TRIGGER __asm__("int3")
+#   endif
 #endif
 
 #ifndef hch_assert
@@ -832,10 +878,11 @@ typedef uint64_t            bitmask64;
         fprintf(stderr,__VA_ARGS__); \
         fprintf(stderr,"\n"); \
         FAULT_TRIGGER;      \
-        fprintf(stderr, "NOTE: you can define FAULT_TRIGGER to enable gdb breakpoint\n");\
         exit(1);            \
     }} while(0)
 #endif
+
+#endif // __HCH_PRELUDE_H
 /*
    String Builder (Nob style)
 */
@@ -1386,7 +1433,7 @@ String* str_split(String src, char divisor, size_t* count) {
 	String  item = str_prealloc(32);
 	String* items = 0;
 
-	loop(i, src.len) {
+	hc_loop(i, src.len) {
 		bool slice_eq = src.ptr[i] == divisor;
 		bool trail_str =  ( !str_is_empty(item) && i == src.len-1);
 
@@ -1413,7 +1460,7 @@ String* str_split(String src, char divisor, size_t* count) {
 
 void str_print_fmt(String s, char* pref, char* pofx) {
 	if (pref) printf("%s",pref);
-	loop(i,s.len) {
+	hc_loop(i,s.len) {
 		printf("%c",s.ptr[i]);
 	}
 	if (pofx) printf("%s",pofx);

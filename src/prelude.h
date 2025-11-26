@@ -44,7 +44,6 @@ typedef unsigned short      bitmask16;
 typedef unsigned int        bitmask32;
 typedef uint64_t            bitmask64;
 
-#endif // __HCH_PRELUDE_H
 
 //
 // MACROS
@@ -111,10 +110,12 @@ u64 __bm_get_chunk(u64 mask, u8 offset, u8 size) {
 
 // custom assert
 
-#ifdef  HCH_ASSERT_NO_BREAKPOINT
-#define FAULT_TRIGGER // does nothing 
-#else
-#define FAULT_TRIGGER __asm__("int3")
+#ifndef FAULT_TRIGGER
+#   ifdef  HCH_ASSERT_NO_BREAKPOINT
+#       define FAULT_TRIGGER // does nothing 
+#   else
+#       define FAULT_TRIGGER __asm__("int3")
+#   endif
 #endif
 
 #ifndef hch_assert
@@ -126,6 +127,6 @@ u64 __bm_get_chunk(u64 mask, u8 offset, u8 size) {
         FAULT_TRIGGER;      \
         exit(1);            \
     }} while(0)
-
+#endif
 
 #endif // __HCH_PRELUDE_H

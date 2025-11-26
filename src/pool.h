@@ -21,13 +21,12 @@
 // TODO: use inline __asm__(int3) to have a proper breakpoint 
 // instead of this old funny hack
 // cause segmentaion fault to be able to run gdb on breakpoint
-#ifdef DEBUG_SEGFAULT_ON_ASSERT
-#   define FAULT_TRIGGER \
-        *((int*)0) = 1 
-#endif
-
 #ifndef FAULT_TRIGGER
-#define FAULT_TRIGGER // does nothing 
+#   ifdef  HCH_ASSERT_NO_BREAKPOINT
+#       define FAULT_TRIGGER // does nothing 
+#   else
+#       define FAULT_TRIGGER __asm__("int3")
+#   endif
 #endif
 
 #ifndef hch_assert
@@ -37,11 +36,9 @@
         fprintf(stderr,__VA_ARGS__); \
         fprintf(stderr,"\n"); \
         FAULT_TRIGGER;      \
-        fprintf(stderr, "NOTE: you can define FAULT_TRIGGER to enable gdb breakpoint\n");\
         exit(1);            \
     }} while(0)
 #endif
-
 typedef size_t              index_t;
 typedef unsigned char       bitmask8;
 
