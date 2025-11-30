@@ -13,6 +13,7 @@
 
 
 #include <stdio.h>   
+#include <time.h>   
 #include <string.h>  
 #include <assert.h>  
 #include <stdbool.h> 
@@ -148,7 +149,7 @@ void* temp_put_sized(void* item, size_t size) {
 }
 
 void* temp_string(const char* string) {
-    return temp_put_sized(string, strlen(string));
+    return temp_put_sized((void*)string, strlen(string));
 }
 
 //
@@ -200,7 +201,7 @@ void profiler_end(unsigned int entry_id) {
     utime before = __PROFILER_TABLE__[entry_id].begin;
     utime time_ns = after-before;
     __PROFILER_TABLE__[entry_id].finished = true;
-    __PROFILER_TABLE__[entry_id].result = after-before;
+    __PROFILER_TABLE__[entry_id].result = time_ns;
 }
 
 

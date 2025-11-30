@@ -273,16 +273,21 @@ void __da_append_generic(void* da_ptr, void* varptr, size_t size) {
 #ifndef __LIST_H
 #define __LIST_H
 
+// remove useless warning 
+// hide warning '-Wmissing-field-initializers'
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
 #include <stdlib.h>  
 #include <stdio.h>   
 #include <string.h>  
 #include <assert.h>  
 
 //
-// Linked List
+// Linked List (legacy)
 //
-#ifndef li_append
 
+#ifdef LI_SIMPLER_IMPLEMENTATION
 #define li_append(L, I) do {\
     if(!(L)) {(L) = (I); (L)->tail = (L);}\
     else {\
@@ -316,7 +321,92 @@ void __da_append_generic(void* da_ptr, void* varptr, size_t size) {
    } (LI) = 0;\
 } while(0)
 
-#endif//li_append
+
+//
+// More complex and sophisticated
+//
+#else 
+
+typedef struct {
+    size_t typesize;
+    void *next, *prev, *tail;
+} __ListData__;
+#define ListHead ListData
+#define ListData __ListData__ __head__;
+
+#define li_append_macro(L, I) do {\
+    if(!(L)) {(L) = (I); (L)->__head__.tail = (L);}\
+    else {\
+        size_t __head_offset__ = (void*)&((L)->__head__) - (void*)(L);\
+        void* __list_item__ = (I);\
+        void* __tail__ = (L)->__head__.tail;\
+        /*Set prev item*/\
+        (I)->__head__.prev = __tail__;\
+        /*Set next item*/\
+        ((__ListData__*)(__tail__ + __head_offset__))->next = __list_item__;\
+        /*Set new tail*/\
+        (L)->__head__.tail = __list_item__;\
+    }\
+}while(0)
+
+void li_append_generic(
+        void**listptr, 
+        void* item, 
+        size_t item_size, 
+        void* list_header) 
+{
+    assert(listptr);
+    assert(item);
+    #define list (*listptr)
+    __ListData__ *head = list_header;
+    size_t offset = list_header - list;
+
+    if (!list) { // pointer is null, the offset IS the list_header
+        list = item;
+        head = list + offset;
+        head->tail = list;
+        head->typesize = item_size;
+    } 
+
+    else {
+        assert(head->typesize == item_size);
+        head = list_header;
+        __ListData__* tail_head = head->tail + offset;
+        __ListData__* item_head = item + offset;
+        // set previous
+        void* tail = head->tail;
+        item_head->prev = tail;
+        // set next
+        tail_head->next = item;
+        head->tail = item;
+    }
+
+#undef list
+}
+
+
+#ifdef LI_LINKABLE
+#   define li_append(list, item)\
+        li_append_generic((void**)&(list),\
+                item, sizeof(*item),\
+                &((list)->__head__))
+#else
+#   define li_append(list, item)\
+        li_append_macro(list, item)
+#endif// LI_LINKABLE
+
+#define li_next(list) (((list)->__head__).next)
+#define li_prev(list) (((list)->__head__).prev)
+
+#define li_foreach(list, type, iterator) \
+    for(type iterator = list; iterator; iterator = li_next(iterator))
+
+
+#endif//LI_SIMPLER_IMPLEMENTATION
+
+// restore warning '-Wmissing-field-initializers'
+#pragma GCC diagnostic pop
+
 #endif//__LINK_H
 #ifndef __HCH_MAP_H
 #define __HCH_MAP_H
@@ -754,12 +844,19 @@ void  pool_release(Pool* p, index_t i) {
 //
 // PRELUDE
 //
-
+/* stuff like:
+ *  - types
+ *  - common utility macros
+ *  - bitmask handling
+ *  - temporary allocator
+ *
+*/
 #ifndef __HCH_PRELUDE_H
 #define __HCH_PRELUDE_H
 
 
 #include <stdio.h>   
+#include <time.h>   
 #include <string.h>  
 #include <assert.h>  
 #include <stdbool.h> 
@@ -796,13 +893,14 @@ typedef unsigned char       bitmask8;
 typedef unsigned short      bitmask16;
 typedef unsigned int        bitmask32;
 typedef uint64_t            bitmask64;
+typedef int64_t             stime;
+typedef uint64_t            utime;
 
 
 //
 // MACROS
 //
 
-#ifndef HCH_STRIP_MACRO_PREFIX
 # define hc_max(A,B)            (A > B) ? A : B
 # define hc_min(A,B)            (A < B) ? A : B
 # define hc_loop(I,N)           for(size_t I = 0; I < (N); I++)
@@ -819,8 +917,8 @@ typedef uint64_t            bitmask64;
 # define hc_roptr(v)            ((const void*) v)
 # define hc_cmp(l,r)            (memcmp(&(l),&(r),hc_min(sizeof(l),sizeof(r)))==0)
 # define hc_BREAKPOINT()        __asm__("int3")
-#else
 
+#ifdef HCH_STRIP_MACRO_PREFIX
 # define arrlen(a)       hc_arrlen(a) 
 # define cast(v, T)      hc_cast(v, T)     
 # define transmute(v, T) hc_transmute(v, T)
@@ -836,7 +934,6 @@ typedef uint64_t            bitmask64;
 # define loopt(TI,N)        hc_loopt(TI,N)       
 # define range(n, min, max) hc_range(n, min, max)
 # define clamp(n, min, max) hc_clamp(n, min, max)
-
 #endif//HCH_STRIP_PREFIX
 
 //
@@ -844,10 +941,11 @@ typedef uint64_t            bitmask64;
 //
 
 #ifndef HCH_FULL_BITMASK_PREFIX
-#   define bm_toggle(N, M)              ((N) ^ (M))
-#   define bm_set(N, M)                 ((N) | (M))
-#   define bm_clear(N, M)               ((N) & (~(M)))
-#   define bm_get_chunk(m, off, size)   __bm_get_chunk((m),(off),(sz))
+#   define bit_check(N, M)               ((N) & (M))
+#   define bit_toggle(N, M)              ((N) ^ (M))
+#   define bit_set(N, M)                 ((N) | (M))
+#   define bit_clear(N, M)               ((N) & (~(M)))
+#   define bit_get_chunk(m, off, size)   __bm_get_chunk((m),(off),(sz))
 #else
 #   define bitmask_toggle(N, M)             ((N) ^ (M))
 #   define bitmask_set(N, M)                ((N) | (M))
@@ -860,6 +958,112 @@ u64 __bm_get_chunk(u64 mask, u8 offset, u8 size) {
     for(int i = 0; i < size; i++) select_mask |= (1 << i);
     return (mask >> offset) & select_mask;
 }
+
+//
+// temporary allocator
+//
+#ifndef TEMP_ALLOCATOR_SIZE // 4 megs
+#   define TEMP_ALLOCATOR_SIZE 1024 * 1000 * 4
+#endif
+
+static unsigned int  __temp_allocator_current__ ;
+static unsigned char __temp_allocator_buffer__  [TEMP_ALLOCATOR_SIZE];
+
+void* temp_alloc(size_t size);
+void* temp_put_sized(void* item, size_t size);
+void* temp_string(const char* string);
+
+
+void* temp_alloc(size_t size) {
+    assert(size < TEMP_ALLOCATOR_SIZE);
+    // reset if can't fit
+    if (__temp_allocator_current__ + size > TEMP_ALLOCATOR_SIZE) 
+        __temp_allocator_current__ = 0;
+    void* mem = __temp_allocator_buffer__ +
+                __temp_allocator_current__;
+    __temp_allocator_current__ += size;
+    return mem;
+}
+
+void* temp_put_sized(void* item, size_t size) {
+    void* mem = temp_alloc(size);
+    memcpy(mem, item, size);
+    return mem;
+}
+
+void* temp_string(const char* string) {
+    return temp_put_sized((void*)string, strlen(string));
+}
+
+//
+// profiler
+//
+
+/* Just an array into which you log your profiling
+ * results, index into array is your enum, time saved in nanoseconds.
+ */
+
+#ifndef PROFILER_ENTRY_CAPACITY // i believe 512 timer entries is more than enough
+#   define PROFILER_ENTRY_CAPACITY 512
+#endif
+
+#define MICROSECOND 1000 
+#define MILLISECOND 1000*1000 
+#define SECOND      1000*1000*1000 
+
+typedef struct {
+    bool  finished;
+    utime result;
+    utime begin;
+} __profiler_table_entry__;
+static __profiler_table_entry__ 
+    __PROFILER_TABLE__ 
+        [PROFILER_ENTRY_CAPACITY];
+
+void profiler_begin     (unsigned int entry_id);
+void profiler_end       (unsigned int entry_id);
+utime profiler_get_ns   (unsigned int entry_id);
+utime profiler_get_ms   (unsigned int entry_id);
+double profiler_get_sec (unsigned int entry_id);
+
+void profiler_begin(unsigned int entry_id) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    assert(entry_id < PROFILER_ENTRY_CAPACITY);
+    __PROFILER_TABLE__[entry_id].finished = false;
+    __PROFILER_TABLE__[entry_id].begin =  
+        (utime)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+}
+
+void profiler_end(unsigned int entry_id) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    assert(entry_id < PROFILER_ENTRY_CAPACITY);
+    utime  after = (utime)
+        ts.tv_sec * 1000000000LL + ts.tv_nsec;
+    utime before = __PROFILER_TABLE__[entry_id].begin;
+    utime time_ns = after-before;
+    __PROFILER_TABLE__[entry_id].finished = true;
+    __PROFILER_TABLE__[entry_id].result = time_ns;
+}
+
+
+double profiler_get_sec(unsigned int entry_id) {
+    double time = (double)profiler_get_ns(entry_id)/((double)SECOND);
+    return time;
+}
+
+utime profiler_get_ms(unsigned int entry_id) {
+    utime time = profiler_get_ns(entry_id)/(MILLISECOND);
+    return time;
+}
+
+utime profiler_get_ns(unsigned int entry_id) {
+    assert(__PROFILER_TABLE__[entry_id].finished && "attempt to access a unfinished timer!");
+    utime time = __PROFILER_TABLE__[entry_id].result;
+    return time;
+}
+
 
 // custom assert
 

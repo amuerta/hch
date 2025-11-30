@@ -1,22 +1,27 @@
+#if 0
+#include "../src/link.h"
+#include "../src/arena.h"
+#include "../src/prelude.h"
+#endif
 #include "../hc.h"
 
-typedef struct People {
+typedef struct {
     const char* name;
     unsigned char age;
-    struct People *next, *tail, *prev;
-} People;
+    ListHead;
+} Person;
 
 
-char* person_fmt(People p) {
+char* person_fmt(Person p) {
     static char temp[512];
     memset(temp,0,512);
-    sprintf(temp, "{ \"%s\", %i }", p.name, p.age);
+    sprintf(temp, "{\"%s\", %i}", p.name, p.age);
     return temp;
 } 
 
 
-People* arena_new_person(Arena* arena, mstr name, u8 age) {
-    People* item = arena_alloc(arena, sizeof(People));
+Person* arena_new_person(Arena* arena, char* name, unsigned int age) {
+    Person* item = arena_alloc(arena, sizeof(Person));
     item->name = name;
     item->age = age;
     return item;
@@ -24,20 +29,21 @@ People* arena_new_person(Arena* arena, mstr name, u8 age) {
 
 
 int main(void) {
-    People* list = 0;
+    Person* list = 0;
 
     printf(" STACK ALLOCATED NODES \n");
-    People juliet = { "juliet", 23, 0,0,0 };
-    People romeo  = { "romeo",  25, 0,0,0 };
-    People marco  = { "marco",  28, 0,0,0 };
+    // ignore perentacies, they are to ignore stupid warning i care about
+    Person juliet = {"juliet", 23, {}};
+    Person romeo  = {"romeo",  25, {}};
+    Person marco  = {"marco",  28, {}};
 
     li_append(list, &juliet);
     li_append(list, &romeo);
     li_append(list, &marco);
 
-    li_foreach(list, People, it, {
-            printf("%s\n", person_fmt(*it));
-    });
+    li_foreach(list, Person*, it) {
+        printf("%s\n", person_fmt(*it));
+    }
 
     // reset the stack list
     list = 0;
@@ -49,10 +55,10 @@ int main(void) {
     li_append(list, arena_new_person(&people,"andrey", 41));
     li_append(list, arena_new_person(&people,"khor", 41));
 
-    li_foreach(list, People, it, {
-            printf("%s\n", person_fmt(*it));
-    });
 
+    li_foreach(list, Person*, it) {
+        printf("%s\n", person_fmt(*it));
+    }
 
     list = 0;
     arena_clear(&people);
@@ -62,9 +68,9 @@ int main(void) {
     li_append(list, arena_new_person(&people,"victora", 29));
     li_append(list, arena_new_person(&people,"alexa", 43));
 
-    li_foreach(list, People, it, {
-            printf("%s\n", person_fmt(*it));
-    });
+    li_foreach(list, Person*, it) {
+        printf("%s\n", person_fmt(*it));
+    }
 
 
     arena_free(&people);

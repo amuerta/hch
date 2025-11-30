@@ -1,4 +1,4 @@
-run: bitmasking
+run: list_and_arena
 
 run-all: da list_and_arena sb maps pol args arena
 
