@@ -5,6 +5,9 @@
 #define HCH_MAP_IMPLEMENTATION
 
 #include "../nob.h"
+
+// legacy non header based dynamic array
+#define DA_SIMPLER_IMPLEMENTATION
 #include "../hc.h"
 
 typedef struct {
