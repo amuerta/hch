@@ -1,10 +1,14 @@
-run: da
+run: string
 
-run-all: da list_and_arena sb maps pol args arena
+run-all: da list_and_arena sb maps pol args arena string
 
 build-header:
 	cat ../src/*.h > ../hc.h
 
+
+string:
+	cc -o ./exec/string string.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./exec/string
 
 bitmasking:
 	cc -o ./exec/bitmasking bitmasking.c -ggdb -pg -Wextra -Wall -fsanitize=address

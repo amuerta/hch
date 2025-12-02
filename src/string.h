@@ -7,8 +7,7 @@
 #include <assert.h>  
 #include <stdbool.h> 
 
-#define STR_MAX_REFER_SIZE 256
-#define FULL_LENGTH 0
+#define STR_TEMP_SIZE 1024
 #define STR_NOPATTERN -1
 
 // Dynamic array - "da", can be
@@ -19,84 +18,33 @@ typedef struct {
 	size_t  cap;
 } String;
 
-
-String str_prealloc(size_t cap);
-	// allocates memory for cap 
-	// amount of characters
-	// in empty string of len 0
+// TODO:
+// Write access is avilable for all functions that return void
+// by default ptr is read only but some functions may modify it 
+// via forceful mutable cast
+String  str_prealloc(size_t cap);
 String 	str_from_cstr(char* cstr, size_t len); 
-	// creates a string view from cstr, creates a copy of cstr,
-	// allocates memory!
 String 	str_move_cstr(char* cstr);
-	// creates a string view without ownership of cstr,
-	// DOES NOT allocate memory!
 String 	str_create(char* cstr);
-	// shorten version of str_from_cstr(char*,size_t);
-	// allocated memory!
 String 	str_dup(String orig);
-	// creates a copy of existing String
-	// allocates memory!
 String 	str_substr(String orig, size_t index, size_t len);
-	// creates a new string from origin begining from index
-	// and finishing at index+len
-	// if index or len go out of bounds
-	// asserts error
 String* str_split(String src, char divisor, size_t* count);
-	// splits strings src by a divisor char
-	// return newelly allocated buffer of
-	// strings, writes thier amount to ~count~ ptr
-	// allocated memory!
 void 	str_append_chars(String *s,char* chars);
-	// appends any N of chars to the end of 
-	// the String s
 void 	str_append_char(String *s, char ch);
-	// appends single char to String s
 void 	str_reverse(String* s);
-	// reverses the string characters
 bool 	str_begins_with(String src, String pat);
-	// returns true if pattern is the begining of source
-	// asserts any of strings len is 0 or 
-	// when pattern is bigger then source
 bool 	str_ends_with(String src, String pat);
-	// same as str_begins_with(String,String) 
-	// but checks the end of the string instead
-	// asserts follow the same rules as in a
-	// function above
 bool 	str_are_equal(String l, String r);
-	// returns true if strings are equal
 bool 	str_is_empty(String s);
-	// returns true if s.len == 0 or when 
-	// string pointer points to NULL
 int 	str_has_pattern(String src, String pat);
-	// iterates over string source to find 
-	// substring defined in pattern,
-	// returns begining index of pattern on sucess
-	// -1 or STR_NOPATTERN on failure
-    // NOTE: SLOW!!
 bool 	str_is_integer(String s);
-	// returns true if all the characters
-	// are either numbers or a minus sign
 bool 	str_is_float(String s);
-	// same as str_is_integer(String)
-	// but also checks for a dot: '.'
-char* 	str_get_cstr(String s);
-	// returns copied string pointer terminated by 0
-	// needs to be freed after seperately
-
 #define str_print(s) str_print_fmt(s,0,0)
 void	str_print_fmt(String s, char* prefix, char* postfix);
 
-char*	str_get_temp(String s);
-	// creates a static string of STR_STATIC_SIZE
-	// used for printing and <string.h> functions
-	// in order to modify content, create another
-	// buffer/string, and copy stuff in there.
+char*	str_temp_cstr(String s);
 void 	str_clear(String* s);
-	// resets string contents
-	// and length 
 void 	str_free(String* s);
-	// frees the memory
-	// resets every field to 0
 	
 // TODO: find quicker comparison for sequence of characters
 //
@@ -111,12 +59,39 @@ bool	str_memncmp(char* src, char* cmp, size_t block_sizes[2], size_t pos, size_t
 // IMPLEMENTATION
 //
 
+#define str__max(A,B) (A) > (B) ? (A) : (B)
+#define str__min(A,B) (A) > (B) ? (B) : (A)
+#define str__clamp(n, min, max) \
+     ((n) < (min)) ? (min) : ((n) > (max) ? (max) : (n)) 
+#define str_loop(I,N) for(size_t I = 0; I < (N); I++)
+
+String str_zero(void) {
+    String s = {0};
+    return s;
+}
+
 String str_prealloc(size_t cap) {
 	return (String) {
 		.cap = cap,
 		.len = 0,
 		.ptr = calloc(cap,sizeof(char)),
 	};
+}
+
+#define str_set(s, cstr) str_set_sized(s, cstr, strlen(cstr))
+void str_set_sized(String* s, char* ptr, size_t len) {
+    assert(s && "Expected string to be not NULL");
+    if (!ptr || !len) return;
+
+    if(len >= s->cap) {
+        if (!s->cap && s->ptr)
+            s->ptr = calloc(len, 1);
+        else
+            s->ptr = realloc(s->ptr, len);
+        s->cap = len;
+        s->len = len;
+    }
+    memcpy(s->ptr, ptr, len);
 }
 
 String str_from_cstr(char* cstr, size_t len) {
@@ -132,7 +107,7 @@ String str_from_cstr(char* cstr, size_t len) {
 	
 	prealloc_count = len;
 #ifdef STR_PREALLOC_BYTES
-	prealloc_count = max(STR_PREALLOC_BYTES,len);
+	prealloc_count = str__max(STR_PREALLOC_BYTES,len);
 #endif
 
 	String s = {0};
@@ -150,7 +125,7 @@ String str_from_cstr(char* cstr, size_t len) {
 }
 
 String str_create(char* cstr) {
-	return str_from_cstr(cstr,FULL_LENGTH);
+	return str_from_cstr(cstr,strlen(cstr));
 }
 
 String str_move_cstr(char* cstr) {
@@ -185,6 +160,22 @@ String str_dup(String s) {
 }
 
 
+String str_slice(String orig, size_t begin, size_t end) {
+    assert(begin == end && "can't have slices of same size");
+    int b = str__min(begin, end);
+    int e = str__max(begin, end);
+    b = str__clamp(b, 0, (int)orig.len - 1);
+    e = str__clamp(e, 0, (int)orig.len - 1);
+
+    String s = {
+        .ptr = orig.ptr + begin,
+        .len = end - begin,
+        .cap = 0
+    };
+
+    return s;
+}
+
 String str_substr(String orig, size_t index, size_t len) {
 	assert(index < orig.len && 
 			"Index overflows original string");
@@ -194,18 +185,15 @@ String str_substr(String orig, size_t index, size_t len) {
 			"Slice go out of original string bounds");
 
 
-	// alloca is buggy, fix-sized array is tedious
-	char* buffer = calloc(len+1,sizeof(char)); 
-	for(uint i = 0; i < len; i++) 
-		buffer[i] = orig.ptr[index+i];
-	
-	String s = str_create(buffer);
-	free(buffer);
-	return s;
+    String sub = {
+        .ptr = orig.ptr + index,
+        .len = len,
+        .cap = 0
+    };
+	return sub;
 }
 
-void str_append_chars(String *s,char* chars) {
-
+void str_append_chars(String *s, char* chars) {
 	char* new_ptr 		= 0;
 	size_t chars_len 	= strlen(chars);
 	size_t new_len   	= s->len + chars_len;
@@ -350,7 +338,7 @@ bool str_are_equal(String l, String r) {
 }
 
 bool str_is_empty(String s) {
-	return (s.cap == 0 || s.ptr == NULL);
+	return (s.ptr == NULL);
 }
 
 int str_has_pattern(String src, String pat) {
@@ -416,7 +404,7 @@ bool str_is_float(String s) {
 }
 
 
-char* str_get_cstr(String s) {
+char* str_create_cstr(String s) {
 	char* temp = calloc( (s.len+1)	,	sizeof(char));
 	for(uint i = 0; i < s.len+1; i++)
 		temp[i] = 0;
@@ -424,23 +412,41 @@ char* str_get_cstr(String s) {
 	return temp;
 }
 
-char* str_refer(String s) {
-	static char buffer[STR_MAX_REFER_SIZE];
-	memset(buffer,0,STR_MAX_REFER_SIZE);
-	size_t len = (s.len < STR_MAX_REFER_SIZE - 1) ? 
-		s.len : STR_MAX_REFER_SIZE - 1;
+char* str_temp_cstr(String s) {
+	static char buffer[STR_TEMP_SIZE];
+	memset(buffer,0,STR_TEMP_SIZE);
+	size_t len = (s.len < STR_TEMP_SIZE - 1) ? 
+		s.len : STR_TEMP_SIZE - 1;
 	strncpy(buffer,s.ptr,len);
 	return buffer;
 }
 
+String str_split_chars(String* s, const char* chars) {
+    assert(s);
+    if(*s->ptr == 0) *s = str_zero();
+    String l = {.ptr=s->ptr,0};
+    for(size_t i = 0; i < s->len; i++) {
+        for(size_t c = 0; c < strlen(chars); c++)
+            if(*s->ptr == chars[c]) {
+                s->ptr++;
+                if (*s->ptr) s->len = s->len-l.len-1;
+                else *s = str_zero();
+                return l;
+            }
+        l.len++;
+        s->ptr++;
+    }
+    return l;
+}
+
 // TODO: increase performance?
-String* str_split(String src, char divisor, size_t* count) {
+String* str_split_many(String src, char divisor, size_t* count) {
 	assert(src.len > 0 && "source shouldn't be empty");
 	assert(count && "count shouldn't be NULL");
 	String  item = str_prealloc(32);
 	String* items = 0;
 
-	hc_loop(i, src.len) {
+	str_loop(i, src.len) {
 		bool slice_eq = src.ptr[i] == divisor;
 		bool trail_str =  ( !str_is_empty(item) && i == src.len-1);
 
@@ -464,10 +470,52 @@ String* str_split(String src, char divisor, size_t* count) {
 	return items;
 }
 
+String str_trim_right(String s) {
+    String r = {
+        .ptr = s.ptr,
+        .len = s.len
+    };
+    for(int i = s.len-1; i >= 0; i--) {
+        bool is_space = 
+            r.ptr[i] == '\n' ||
+            r.ptr[i] == '\t' ||
+            r.ptr[i] == '\r' ||
+            r.ptr[i] == ' '  ;
+        if (!is_space) return r;
+        r.len--;
+    }
+    return r;
+}
+
+String str_trim_left(String s) {
+    String r = {
+        .ptr = s.ptr,
+        .len = s.len,
+    };
+    for(size_t i = 0; i < s.len; i++) {
+        bool is_space = 
+            *r.ptr == '\n' ||
+            *r.ptr == '\t' ||
+            *r.ptr == '\r' ||
+            *r.ptr == ' '  ;
+        if(!is_space) return r;
+        r.len--;
+        r.ptr++;
+    }
+    return r;
+}
+
+String str_trim(String s) {
+    return str_trim_left(str_trim_right(s));
+}
+
+bool str_cmp_str(String s, const char* str) {
+    return (s.len == strlen(str)) && strncmp(s.ptr, str, s.len) == 0;
+}
 
 void str_print_fmt(String s, char* pref, char* pofx) {
 	if (pref) printf("%s",pref);
-	hc_loop(i,s.len) {
+	str_loop(i,s.len) {
 		printf("%c",s.ptr[i]);
 	}
 	if (pofx) printf("%s",pofx);
@@ -475,10 +523,12 @@ void str_print_fmt(String s, char* pref, char* pofx) {
 
 void str_clear(String* s) {
 	s->len = 0;
-	memset(s->ptr,0,s->cap);
+    if(s->cap)
+        memset(s->ptr,0,s->cap);
 }
 
 void str_free(String* s) {
+    assert(s->cap && "Can't free slice, only owned strings");
 	s->len = 0;
 	s->cap = 0;
 	if (s->ptr) 
