@@ -7,8 +7,8 @@
 #include <assert.h>  
 #include <stdbool.h> 
 
-#ifndef MAPS_DEFAULT_INIT_SIZE
-#   define MAPS_DEFAULT_INIT_SIZE 2048
+#ifndef MAP_DEFAULT_INIT_SIZE
+#   define MAP_DEFAULT_INIT_SIZE 2048
 #endif
 
 // Map uses slice instead of cstring
@@ -84,7 +84,7 @@ Map map_alloc(Map* m, size_t cap) {
 
     if(!m) m = &local_map;
     
-    if (cap == 0) m->capacity = MAPS_DEFAULT_INIT_SIZE;
+    if (cap == 0) m->capacity = MAP_DEFAULT_INIT_SIZE;
     else m->capacity = cap;
 
     m->keys = calloc(m->capacity, sizeof(*m->keys));

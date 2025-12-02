@@ -46,6 +46,7 @@ typedef const char*         istr;
 typedef char*               mstr;
 
 typedef size_t              index_t;
+typedef intmax_t            sindex_t;
 typedef unsigned char       bitmask8;
 typedef unsigned short      bitmask16;
 typedef unsigned int        bitmask32;

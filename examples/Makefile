@@ -1,6 +1,6 @@
 run: string
 
-run-all: da list_and_arena sb maps pol args arena string
+run-all: da list_and_arena sb map pol args arena string
 
 build-header:
 	cat ../src/prelude.h > ../hc.h
@@ -10,7 +10,7 @@ build-header:
 	cat ../src/arena.h >> ../hc.h
 	cat ../src/args.h >> ../hc.h
 	cat ../src/string.h >> ../hc.h
-	cat ../src/maps.h >> ../hc.h
+	cat ../src/map.h >> ../hc.h
 	cat ../src/pool.h >> ../hc.h
 
 
@@ -58,9 +58,9 @@ set:
 	cc -o ./exec/sset sset.c -ggdb -pg -Wextra -Wall -fsanitize=address
 	./exec/sset
 
-maps:
-	cc -o ./exec/maps maps.c -ggdb -pg -Wextra -Wall -fsanitize=address
-	./exec/maps
+map:
+	cc -o ./exec/map map.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./exec/map
 
 args:
 	cc -o ./exec/args args.c -ggdb -pg -Wextra -Wall
