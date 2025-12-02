@@ -6,13 +6,14 @@
 #include <stdio.h>   
 #include <string.h>  
 #include <assert.h>  
-#include <stdbool.h> 
+#include <stdarg.h>
+#include <stdbool.h>
 
 #ifndef __HCH_SB_H
 #define __HCH_SB_H
 
 typedef struct {
-    // transmutable -> DA , string
+    // transmutable -> DA , String
     char*  items;
     size_t count, capacity;
 
@@ -26,8 +27,7 @@ typedef struct {
 #define sb_min(a,b) ((a) > (b))? (b) : (a)
 #define sb_max(a,b) ((a) < (b))? (b) : (a)
 
-// TODO: move this somewhere else higher up
-// it can be wiedly used.
+#ifndef __HCH_PRELUDE_H
 void* recalloc(void* ptr, size_t prev_size, size_t size) {
     void* new_ptr = calloc(size, 1);
     if(ptr) {
@@ -35,6 +35,11 @@ void* recalloc(void* ptr, size_t prev_size, size_t size) {
         free(ptr);
     }
     return new_ptr;
+}
+#endif
+
+bool sb_is_empty(StringBuilder sb) {
+    return !sb.items || !sb.items;
 }
 
 void sb__append(StringBuilder* sb, const char** items, size_t count) {
@@ -77,6 +82,28 @@ void sb__append(StringBuilder* sb, const char** items, size_t count) {
 
         }
     }
+}
+
+void sb_reverse(StringBuilder* s) {
+	if (sb_is_empty(*s))
+		return;
+
+	char* ptr_cpy = calloc(s->count, sizeof(char));
+	if (!ptr_cpy) assert(false && "Failed to allocate" "memory with calloc(n,s)"); 
+    memcpy(ptr_cpy, s->items, s->count);
+	// [ h i ! ] : len 3
+	//   i i i
+	//   0 1 2
+	//     ^ ^
+	//	   | (end) = (len - 1)
+	//	   |
+	//	   +-> (end) - i
+
+	for(uint i = 0; i < s->count; i++) {
+		size_t reverse = (s->count-1) - i;
+		s->items[i] = ptr_cpy[reverse];
+	}
+	free(ptr_cpy);
 }
 
 void sb_appendf(StringBuilder* sb, const char* fmt, ...) {

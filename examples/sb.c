@@ -31,6 +31,9 @@ int main(void) {
     sb_append(&sb, "1" , "2", "3", "4", "5");
     printf("Array: [ %s ]", sb.items);
 
+    printf("\nCAN BE REVERSED IF NEEDED\n");
+    sb_reverse(&sb);
+    printf("Array: [ %s ]\n", sb.items);
 
     free(sb.items);
 }

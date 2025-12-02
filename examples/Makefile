@@ -3,7 +3,15 @@ run: string
 run-all: da list_and_arena sb maps pol args arena string
 
 build-header:
-	cat ../src/*.h > ../hc.h
+	cat ../src/prelude.h > ../hc.h
+	cat ../src/da.h >> ../hc.h
+	cat ../src/sb.h >> ../hc.h
+	cat ../src/link.h >> ../hc.h
+	cat ../src/arena.h >> ../hc.h
+	cat ../src/args.h >> ../hc.h
+	cat ../src/string.h >> ../hc.h
+	cat ../src/maps.h >> ../hc.h
+	cat ../src/pool.h >> ../hc.h
 
 
 string:

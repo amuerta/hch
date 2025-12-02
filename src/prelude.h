@@ -116,6 +116,20 @@ u64 __bm_get_chunk(u64 mask, u8 offset, u8 size) {
     return (mask >> offset) & select_mask;
 }
 
+
+//
+// allocation utilities
+//
+
+void* recalloc(void* ptr, size_t prev_size, size_t size) {
+    void* new_ptr = calloc(size, 1);
+    if(ptr) {
+        memcpy(new_ptr, ptr, prev_size);
+        free(ptr);
+    }
+    return new_ptr;
+}
+
 //
 // temporary allocator
 //
@@ -220,6 +234,7 @@ utime profiler_get_ns(unsigned int entry_id) {
     utime time = __PROFILER_TABLE__[entry_id].result;
     return time;
 }
+
 
 
 // custom assert
