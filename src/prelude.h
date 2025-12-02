@@ -163,7 +163,7 @@ void* temp_put_sized(void* item, size_t size) {
 }
 
 void* temp_string(const char* string) {
-    return temp_put_sized((void*)string, strlen(string));
+    return temp_put_sized((void*)string, strlen(string) + 1);
 }
 
 //
