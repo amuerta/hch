@@ -21,16 +21,21 @@ typedef struct {
     int             count;
 } ArgsSlice;
 
-bool arg_str_is_flag(const char* str) {
-    return str && strlen(str) >= 2 && (strncmp(str,"--", 2)==0 || *str == '-') ;
+const char* arg_str_is_flag(const char* str) {
+    const char* flag = str;
+    bool valid_flag = flag && strlen(flag) >= 2;
+    if (!valid_flag)  return NULL;
+    if (*flag == '-') flag++; else return NULL;
+    if (*flag == '-') flag++;
+    return flag;
 }
 
 int arg_flag(ArgsSlice args, const char* flag) {
     assert(flag);
     for(int i = 0; i < args.count; i++) {
         const char* s = args.items[i];
-        if (arg_str_is_flag(s)) 
-            if (*s == '-' || (*s == '-' && strcmp((s+2), flag)==0)) 
+        if (( s = arg_str_is_flag(s))) 
+            if (strcmp(s, flag)==0) 
                 return i;
     }
     return 0;
