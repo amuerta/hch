@@ -30,6 +30,7 @@ const char* arg_str_is_flag(const char* str) {
     return flag;
 }
 
+// TODO: make this function accept multiple args, 
 int arg_flag(ArgsSlice args, const char* flag) {
     assert(flag);
     for(int i = 0; i < args.count; i++) {

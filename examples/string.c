@@ -36,7 +36,8 @@ int main(void) {
             "\t4.10 "
             "\t4. "
             "\tfive "
-            "\t6"
+            "\t6 "
+            "   hahaha"
     );
 
     for(int i = 0; !str_is_empty(l); i++) {

@@ -20,9 +20,12 @@ typedef struct {
 
 typedef struct {
     MapKeySlice*    keys;
-    size_t count, capacity;
+    size_t count, capacity, typesize;
 } Map;
 
+#ifndef __HCH_PRELUDE_H
+typedef intmax_t sindex_t;
+#endif
 
 // hash functions: 
 // https://softwareengineering.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed#145633
@@ -33,7 +36,7 @@ static inline unsigned long fnv1a   (const char* data, size_t size);
 MapKeySlice map_slice(const char* str, size_t count);
 MapKeySlice map_key(const char* str);
 
-// map(String)
+// map
 static inline bool  map_key_is_ok   (long int index);
 float               map_load        (Map  m); // in range from 0 to 1
 long int            map_query       (Map  m, MapKeySlice string);

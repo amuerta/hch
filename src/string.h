@@ -211,6 +211,7 @@ int str_has_pattern(String src, String pat) {
 
 bool str_is_integer(String s) {
 	bool is_a_num = true;
+    if (!s.len) return false;
 	for(uint i = 0; i < s.len; i++)
 		is_a_num = is_a_num && (
 			(s.ptr[i] >= '0' &&  s.ptr[i] <= '9')
@@ -221,6 +222,7 @@ bool str_is_integer(String s) {
 
 bool str_is_float(String s) {
 	bool is_a_num = true;
+    if (!s.len) return false;
 	for(uint i = 0; i < s.len; i++)
 		is_a_num = is_a_num && (
 			(s.ptr[i] >= '0' &&  s.ptr[i] <= '9')

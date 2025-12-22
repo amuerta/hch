@@ -58,6 +58,8 @@ void count_words_linear(Words* all, Words* found) {
     }
 }
 
+
+
 void resize_words_map_if_needed(CountMap* m) {
     Map* map = &m->head;
 
