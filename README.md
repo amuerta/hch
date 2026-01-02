@@ -15,14 +15,15 @@ Snippets meant to be highly reusable and easy do distribute and package by simpl
 ## Overview:
 
 The goal of this "snippets" is to:
-    - be self contained, in such way that you can package them by just `cat`-ing them into whatever suits you.
-    - be self documented, you can just read the source.
-    - suit my needs, (which means)
-        - easy to use
-        - minimal setup and memory overhead 
-        - configured easily
-        - you can just compile with single define 
-        - and have a static library you can link with whatever can interface C
+
+- be self contained, in such way that you can package them by just `cat`-ing them into whatever suits you.
+- be self documented, you can just read the source.
+- suit my needs, (which means)
+  + easy to use
+  + minimal setup and memory overhead 
+  + configured easily
+  + you can just compile with single define 
+  + and have a static library you can link with whatever can interface C
 
 In hc.h i have:
 - C QOL macros
