@@ -1,705 +1,3 @@
-//
-// PRELUDE
-//
-/* stuff like:
- *  - types
- *  - common utility macros
- *  - bitmask handling
- *  - temporary allocator
- *
-*/
-#ifndef __HCH_PRELUDE_H
-#define __HCH_PRELUDE_H
-
-
-#include <stdio.h>   
-#include <time.h>   
-#include <string.h>  
-#include <assert.h>  
-#include <stdbool.h> 
-#include <stdarg.h>
-#include <stdint.h>
-#include <stdlib.h>
-
-typedef int8_t              i8;
-typedef int16_t             i16;
-typedef int32_t             i32;
-typedef int64_t             i64;
-typedef intmax_t            isize;
-
-typedef int8_t              s8;
-typedef int16_t             s16;
-typedef int32_t             s32;
-typedef int64_t             s64;
-typedef intmax_t            ssize;
-
-typedef uint8_t             u8;
-typedef uint16_t            u16;
-typedef uint32_t            u32;
-typedef uint64_t            u64;
-typedef size_t              usize;
-
-typedef float               f32;
-typedef double              f64;
-                              
-typedef const char*         istr;
-typedef char*               mstr;
-
-typedef size_t              index_t;
-typedef intmax_t            sindex_t;
-typedef unsigned char       bitmask8;
-typedef unsigned short      bitmask16;
-typedef unsigned int        bitmask32;
-typedef uint64_t            bitmask64;
-typedef int64_t             stime;
-typedef uint64_t            utime;
-
-
-//
-// MACROS
-//
-
-# define hc_max(A,B)            (A > B) ? A : B
-# define hc_min(A,B)            (A < B) ? A : B
-# define hc_loop(I,N)           for(size_t I = 0; I < (N); I++)
-# define hc_loopt(TI,N)         for(TI = 0; I < (N); I++)
-# define hc_range(n, min, max)  ((n)>=(min) && (n)<=(max))
-# define hc_clamp(n, min, max)  \
-     ((n) < (min)) ? (min) : ((n) > (max) ? (max) : (n)) 
-
-# define hc_arrlen(a)           (sizeof(a)/sizeof(a[0]))
-# define hc_cast(v, T)          ((T)v)
-# define hc_transmute(v, T)     *((T*)&(v))
-# define hc_zeroed(v)           memset(&(v), 0, sizeof(v))
-# define hc_unused(v)           ((void) (v))
-# define hc_roptr(v)            ((const void*) v)
-# define hc_cmp(l,r)            (memcmp(&(l),&(r),hc_min(sizeof(l),sizeof(r)))==0)
-# define hc_BREAKPOINT()        __asm__("int3")
-
-#ifdef HCH_STRIP_MACRO_PREFIX
-# define arrlen(a)       hc_arrlen(a) 
-# define cast(v, T)      hc_cast(v, T)     
-# define transmute(v, T) hc_transmute(v, T)
-# define zeroed(v)       hc_zeroed(v)      
-# define unused(v)       hc_unused(v)      
-# define roptr(v)        hc_roptr(v)       
-# define cmp(l,r)        hc_cmp(l,r)       
-# define BREAKPOINT()    hc_BREAKPOINT()   
-
-# define max(A,B)           hc_max(A,B)          
-# define min(A,B)           hc_min(A,B)          
-# define loop(I,N)          hc_loop(I,N)         
-# define loopt(TI,N)        hc_loopt(TI,N)       
-# define range(n, min, max) hc_range(n, min, max)
-# define clamp(n, min, max) hc_clamp(n, min, max)
-#endif//HCH_STRIP_PREFIX
-
-//
-// bitmasking
-//
-
-#ifndef HCH_FULL_BITMASK_PREFIX
-#   define bit_check(N, M)               ((N) & (M))
-#   define bit_toggle(N, M)              ((N) ^ (M))
-#   define bit_set(N, M)                 ((N) | (M))
-#   define bit_clear(N, M)               ((N) & (~(M)))
-#   define bit_get_chunk(m, off, size)   __bm_get_chunk((m),(off),(sz))
-#else
-#   define bitmask_toggle(N, M)             ((N) ^ (M))
-#   define bitmask_set(N, M)                ((N) | (M))
-#   define bitmask_clear(N, M)              ((N) & (~(M)))
-#   define bitmask_get_chunk(m, off, size)  __bm_get_chunk((m),(off),(sz))
-#endif
-
-u64 __bm_get_chunk(u64 mask, u8 offset, u8 size) {
-    int select_mask = 0;
-    for(int i = 0; i < size; i++) select_mask |= (1 << i);
-    return (mask >> offset) & select_mask;
-}
-
-
-//
-// allocation utilities
-//
-
-void* recalloc(void* ptr, size_t prev_size, size_t size) {
-    void* new_ptr = calloc(size, 1);
-    if(ptr) {
-        memcpy(new_ptr, ptr, prev_size);
-        free(ptr);
-    }
-    return new_ptr;
-}
-
-//
-// temporary allocator
-//
-#ifndef TEMP_ALLOCATOR_SIZE // 4 megs
-#   define TEMP_ALLOCATOR_SIZE 1024 * 1000 * 4
-#endif
-
-static unsigned int  __temp_allocator_current__ ;
-static unsigned char __temp_allocator_buffer__  [TEMP_ALLOCATOR_SIZE];
-
-void* temp_alloc(size_t size);
-void* temp_put_sized(void* item, size_t size);
-void* temp_string(const char* string);
-
-
-void* temp_alloc(size_t size) {
-    assert(size < TEMP_ALLOCATOR_SIZE);
-    // reset if can't fit
-    if (__temp_allocator_current__ + size > TEMP_ALLOCATOR_SIZE) 
-        __temp_allocator_current__ = 0;
-    void* mem = __temp_allocator_buffer__ +
-                __temp_allocator_current__;
-    __temp_allocator_current__ += size;
-    return mem;
-}
-
-void* temp_put_sized(void* item, size_t size) {
-    void* mem = temp_alloc(size);
-    memcpy(mem, item, size);
-    return mem;
-}
-
-void* temp_string(const char* string) {
-    return temp_put_sized((void*)string, strlen(string) + 1);
-}
-
-//
-// profiler
-//
-
-/* Just an array into which you log your profiling
- * results, index into array is your enum, time saved in nanoseconds.
- */
-
-#ifndef PROFILER_ENTRY_CAPACITY // i believe 512 timer entries is more than enough
-#   define PROFILER_ENTRY_CAPACITY 512
-#endif
-
-#define MICROSECOND 1000 
-#define MILLISECOND 1000*1000 
-#define SECOND      1000*1000*1000 
-
-typedef struct {
-    bool  finished;
-    utime result;
-    utime begin;
-} __profiler_table_entry__;
-static __profiler_table_entry__ 
-    __PROFILER_TABLE__ 
-        [PROFILER_ENTRY_CAPACITY];
-
-void profiler_begin     (unsigned int entry_id);
-void profiler_end       (unsigned int entry_id);
-utime profiler_get_ns   (unsigned int entry_id);
-utime profiler_get_ms   (unsigned int entry_id);
-double profiler_get_sec (unsigned int entry_id);
-
-void profiler_begin(unsigned int entry_id) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    assert(entry_id < PROFILER_ENTRY_CAPACITY);
-    __PROFILER_TABLE__[entry_id].finished = false;
-    __PROFILER_TABLE__[entry_id].begin =  
-        (utime)ts.tv_sec * 1000000000LL + ts.tv_nsec;
-}
-
-void profiler_end(unsigned int entry_id) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    assert(entry_id < PROFILER_ENTRY_CAPACITY);
-    utime  after = (utime)
-        ts.tv_sec * 1000000000LL + ts.tv_nsec;
-    utime before = __PROFILER_TABLE__[entry_id].begin;
-    utime time_ns = after-before;
-    __PROFILER_TABLE__[entry_id].finished = true;
-    __PROFILER_TABLE__[entry_id].result = time_ns;
-}
-
-
-double profiler_get_sec(unsigned int entry_id) {
-    double time = (double)profiler_get_ns(entry_id)/((double)SECOND);
-    return time;
-}
-
-utime profiler_get_ms(unsigned int entry_id) {
-    utime time = profiler_get_ns(entry_id)/(MILLISECOND);
-    return time;
-}
-
-utime profiler_get_ns(unsigned int entry_id) {
-    assert(__PROFILER_TABLE__[entry_id].finished && "attempt to access a unfinished timer!");
-    utime time = __PROFILER_TABLE__[entry_id].result;
-    return time;
-}
-
-
-
-// custom assert
-
-#ifndef FAULT_TRIGGER
-#   ifdef  HCH_ASSERT_NO_BREAKPOINT
-#       define FAULT_TRIGGER // does nothing 
-#   else
-#       define FAULT_TRIGGER __asm__("int3")
-#   endif
-#endif
-
-#ifndef hch_assert
-#define hch_assert(COND,...) \
-    do { if (!(COND)) { \
-        fprintf(stderr,"Assertion at [%s:%s:%d]: ",__FILE__,__func__,__LINE__); \
-        fprintf(stderr,__VA_ARGS__); \
-        fprintf(stderr,"\n"); \
-        FAULT_TRIGGER;      \
-        exit(1);            \
-    }} while(0)
-#endif
-
-#endif // __HCH_PRELUDE_H
-/*
-    DYNAMIC ARRAY
-*/
-
-#ifndef __DA_H
-#define __DA_H
-
-#include <stdlib.h>  
-#include <stdio.h>   
-#include <string.h>  
-#include <assert.h>  
-
-// This dynamic array is a trick i have seen @Tsoding use,
-// and its (probably) the simplest way of doing dynamic array i used.
-// 
-// It's sort of robust and convinient to use.
-// HOWEVER it's just a macro, which can be an issue when trying to port 
-// projects/libraries to other languages.
-//
-// My solution:
-//  Have api that either calls macros, or actual functions.
-//  You can change which one to use with simple toggle.
-//  Behaviour remains the same in both cases.
-//
-//  This way you can use da_append outside of C, 
-//  its pretty dirty with `void*` but you can create interfaces
-//  in pretty much any other language other than C, or use macros of any kind.
-
-
-#ifndef DA_ITEMS_NAME
-#   define DA_ITEMS_NAME       items
-#endif
-
-#ifndef DA_GROW_FACTOR
-#   define DA_GROW_FACTOR 2
-#endif
-
-#ifndef DA_START_CAPACITY
-#   define DA_START_CAPACITY 32
-#endif
-
-
-// Simpler implementation means DA
-// doesn't use header to store array metadata
-// this ones relies on all items being in strict order
-// as in DaGeneric.
-#ifdef DA_SIMPLER_IMPLEMENTATION
-
-#ifdef DA_LINKABLE
-#   define da_append(DA, VAR) \
-        da_append_generic(&((DA)->DA_ITEMS_NAME), &(VAR), sizeof((VAR)));
-#else
-#   define da_append(DA, VAR) \
-        da_append_macro((DA), (VAR));
-#endif
-
-// generic "interface"
-typedef struct {
-    void* items;
-    size_t count, capacity, typesize;
-} DaGeneric;
-
-#define da_append_macro(DA, VAR) do { \
-    if ((DA)->capacity == 0) {\
-        (DA)->capacity = DA_START_CAPACITY;\
-        (DA)->items = calloc(DA_START_CAPACITY,sizeof(*(DA)->items));\
-    }\
-    if ((DA)->count >= (DA)->capacity) {\
-        (DA)->capacity *= DA_GROW_FACTOR;\
-        (DA)->DA_ITEMS_NAME = realloc((DA)->DA_ITEMS_NAME,sizeof(*(DA)->DA_ITEMS_NAME) * (DA)->capacity);\
-    }\
-    (DA)->DA_ITEMS_NAME[((DA)->count)++] = VAR;\
-} while(0);
-
-void da_append_generic(void* da_ptr, void* varptr, size_t size) {
-    DaGeneric* da = da_ptr;
-    if (da->capacity == 0) {
-        da->capacity = DA_START_CAPACITY; 
-        da->DA_ITEMS_NAME = calloc(DA_START_CAPACITY , size);
-        da->typesize = size;
-    }
-    assert(size == da->typesize);
-    if (da->count >= da->capacity) {
-        da->capacity *= DA_GROW_FACTOR;
-        da->DA_ITEMS_NAME = realloc(da->DA_ITEMS_NAME,size * da->capacity);
-    }
-    memcpy(da->DA_ITEMS_NAME + (da->count * size), varptr, size);
-    da->count++;
-}
-
-//
-// QoL (im lazy)
-//
-#define DA_HEADER(T) \
-        T* DA_ITEMS_NAME;\
-        size_t count, capacity, typesize;
-#define DA_HEAD(T) DA_HEADER(T)
-#define DA_IMPLEMENT(T) DA_HEADER(T)
-
-#define da_foreach(DA,I) for(size_t I = 0; I < DA.count; I++)
-// in case i ever change API, if you use da_get, you should be fine.
-#define da_get(DA)  ((DA).DA_ITEMS_NAME)
-#define da_free(DA) free((DA).DA_ITEMS_NAME)
-// END
-
-
-
-
-
-#else
-// Header Based implementation
-// More robust and concise
-#include <stdlib.h>
-#include <assert.h>
-#include <string.h>
-
-
-typedef struct {
-    size_t count, capacity, typesize;
-} __DaHead__;
-#define DaData __DaHead__ __da_head__;
-#define DaHead DaData
-
-void da_append_generic(
-        void** items_ptr, 
-        __DaHead__ *head, 
-        void* item, size_t tsize) 
-{
-#define items (*items_ptr)
-    if (head->capacity == 0 || !items) {
-        head->capacity = DA_START_CAPACITY; 
-        items = calloc(DA_START_CAPACITY,
-                sizeof(tsize));
-        head->typesize = tsize;
-    }
-    assert(tsize == head->typesize);
-    if (head->count >= head->capacity) {
-        head->capacity *= DA_GROW_FACTOR;
-        items = realloc(items,tsize * head->capacity);
-    }
-    memcpy(items + (head->count * tsize), item, tsize);
-    head->count++;
-#undef items
-}
-
-typedef struct {
-    int* items;
-    DaHead;
-} Ints;
-
-
-#define da_append(A, it) da_append_generic(\
-        ((void**) (&((A)->DA_ITEMS_NAME))),\
-        &((A)->__da_head__),\
-        &it, sizeof(it))
-#define da_count(arr)       ((arr).__da_head__.count)
-#define da_capacity(arr)    ((arr).__da_head__.capacity)
-#define da_get(arr)         ((arr).DA_ITEMS_NAME)
-
-#define da_foreach(A, iter) \
-    for(size_t iter = 0; iter < da_count(A); iter++)
-#define da_free(A) free(A.DA_ITEMS_NAME);
-
-
-#endif // DA_SIMPLER_IMPLEMENATION
-
-#endif// __DA_H
-/*
-   String Builder (Nob style)
-*/
-
-#include <stdlib.h>  
-#include <stdio.h>   
-#include <string.h>  
-#include <assert.h>  
-#include <stdarg.h>
-#include <stdbool.h>
-
-#ifndef __HCH_SB_H
-#define __HCH_SB_H
-
-typedef struct {
-    // transmutable -> DA , String
-    char*  items;
-    size_t count, capacity;
-
-    const char* spacer;
-} StringBuilder;
-
-#define sb_arrlit(...)          ((const char*[]) {__VA_ARGS__})
-#define sb_arrlen(arr)          (sizeof(arr) / sizeof((arr)[0]))
-#define sb_arrlit_len(...)      (sb_arrlen((__VA_ARGS__)))
-
-#define sb_min(a,b) ((a) > (b))? (b) : (a)
-#define sb_max(a,b) ((a) < (b))? (b) : (a)
-
-#ifndef __HCH_PRELUDE_H
-void* recalloc(void* ptr, size_t prev_size, size_t size) {
-    void* new_ptr = calloc(size, 1);
-    if(ptr) {
-        memcpy(new_ptr, ptr, prev_size);
-        free(ptr);
-    }
-    return new_ptr;
-}
-#endif
-
-bool sb_is_empty(StringBuilder sb) {
-    return !sb.items || !sb.items;
-}
-
-void sb__append(StringBuilder* sb, const char** items, size_t count) {
-    if (!count) return;
-    size_t append_size = 0;
-    size_t spacer_size = 0;
-
-    if (sb->spacer) spacer_size = strlen(sb->spacer); 
-
-    for(size_t i = 0; i < count; i++) {
-        if (!items[i]) continue;
-        append_size += strlen(items[i]);
-        if (i != count - 1 || i) 
-            append_size += spacer_size;
-    }
-    // null terminator
-    if(append_size) append_size++;
-
-    if (!sb->items || !sb->capacity) {
-        sb->capacity = 32;
-        sb->items = calloc(32, 1);
-    }
-    if (sb->count + append_size >= sb->capacity) {
-        size_t new_size = sb_max(sb->capacity*2, sb->capacity + append_size);
-        sb->items = recalloc(sb->items, sb->capacity, new_size);
-        sb->capacity = new_size;
-    }
-
-    for(size_t i = 0; i < count; i++)  {
-        if (!items[i]) continue;
-        size_t len = strlen(items[i]);
-        if(items[i]) {
-            memcpy(sb->items + sb->count, items[i], len);
-            sb->count += len;
-            
-            if (spacer_size && (i != count-1)) {
-                memcpy(sb->items + sb->count, sb->spacer, spacer_size);
-                sb->count += spacer_size;
-            }
-
-        }
-    }
-}
-
-void sb_reverse(StringBuilder* s) {
-	if (sb_is_empty(*s))
-		return;
-
-	char* ptr_cpy = calloc(s->count, sizeof(char));
-	if (!ptr_cpy) assert(false && "Failed to allocate" "memory with calloc(n,s)"); 
-    memcpy(ptr_cpy, s->items, s->count);
-	// [ h i ! ] : len 3
-	//   i i i
-	//   0 1 2
-	//     ^ ^
-	//	   | (end) = (len - 1)
-	//	   |
-	//	   +-> (end) - i
-
-	for(uint i = 0; i < s->count; i++) {
-		size_t reverse = (s->count-1) - i;
-		s->items[i] = ptr_cpy[reverse];
-	}
-	free(ptr_cpy);
-}
-
-void sb_appendf(StringBuilder* sb, const char* fmt, ...) {
-    va_list args, args_len;
-    va_start(args, fmt);
-    va_copy(args_len, args);
-    size_t size = vsnprintf(0,0,fmt,args_len);
-    va_end(args_len);
-
-    const char* temp = calloc(size+1,1);
-    vsnprintf((char*)temp, size+1, fmt, args);
-    sb__append(sb, &temp, 1);
-    free((void*)temp);
-    
-    va_end(args);
-}
-
-void sb_clear(StringBuilder* sb) {
-    memset(sb->items, 0, sb->count);
-    sb->count = 0;
-}
-
-#define sb_append(sb, ...) \
-    sb__append(\
-            sb,\
-            sb_arrlit(__VA_ARGS__),\
-            sb_arrlen(sb_arrlit(__VA_ARGS__)))\
-
-#endif//__HCH_SB_H
-#ifndef __LIST_H
-#define __LIST_H
-
-// remove useless warning 
-// hide warning '-Wmissing-field-initializers'
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-
-#include <stdlib.h>  
-#include <stdio.h>   
-#include <string.h>  
-#include <assert.h>  
-
-//
-// Linked List (legacy)
-//
-
-#ifdef LI_SIMPLER_IMPLEMENTATION
-#define li_append(L, I) do {\
-    if(!(L)) {(L) = (I); (L)->tail = (L);}\
-    else {\
-        void* __list_item__ = (I);\
-        (L)->tail->next = __list_item__;\
-        (L)->tail = __list_item__;\
-    }\
-}while(0)
-
-#define li_next(LI) ((LI)->next)
-
-#define li_foreach(LI, T, I, ...) do {\
-   T* __next__ = (LI);\
-   T* __prev__ = (LI); (void)__prev__; (void)__next__;\
-   while(__next__) {\
-       T* I = __next__;\
-       {__VA_ARGS__}\
-       __prev__ = __next__;\
-       __next__ = __next__->next;\
-   }\
-} while(0)
-
-#define li_defer(LI, T, ...) do {\
-   T* __next__ = (LI);\
-   T* __prev__ = (LI);\
-   while(__next__) {\
-       __prev__ = __next__;\
-       __next__ = __next__->next;\
-       {__VA_ARGS__}\
-       __prev__ = 0;\
-   } (LI) = 0;\
-} while(0)
-
-
-//
-// More complex and sophisticated
-//
-#else 
-
-typedef struct {
-    size_t typesize;
-    void *next, *prev, *tail;
-} __ListData__;
-#define ListHead ListData
-#define ListData __ListData__ __head__;
-
-#define li_append_macro(L, I) do {\
-    if(!(L)) {(L) = (I); (L)->__head__.tail = (L);}\
-    else {\
-        size_t __head_offset__ = (void*)&((L)->__head__) - (void*)(L);\
-        void* __list_item__ = (I);\
-        void* __tail__ = (L)->__head__.tail;\
-        /*Set prev item*/\
-        (I)->__head__.prev = __tail__;\
-        /*Set next item*/\
-        ((__ListData__*)(__tail__ + __head_offset__))->next = __list_item__;\
-        /*Set new tail*/\
-        (L)->__head__.tail = __list_item__;\
-    }\
-}while(0)
-
-void li_append_generic(
-        void**listptr, 
-        void* item, 
-        size_t item_size, 
-        void* list_header) 
-{
-    assert(listptr);
-    assert(item);
-    #define list (*listptr)
-    __ListData__ *head = list_header;
-    size_t offset = list_header - list;
-
-    if (!list) { // pointer is null, the offset IS the list_header
-        list = item;
-        head = list + offset;
-        head->tail = list;
-        head->typesize = item_size;
-    } 
-
-    else {
-        assert(head->typesize == item_size);
-        head = list_header;
-        __ListData__* tail_head = head->tail + offset;
-        __ListData__* item_head = item + offset;
-        // set previous
-        void* tail = head->tail;
-        item_head->prev = tail;
-        // set next
-        tail_head->next = item;
-        head->tail = item;
-    }
-
-#undef list
-}
-
-
-#ifdef LI_LINKABLE
-#   define li_append(list, item)\
-        li_append_generic((void**)&(list),\
-                item, sizeof(*item),\
-                &((list)->__head__))
-#else
-#   define li_append(list, item)\
-        li_append_macro(list, item)
-#endif// LI_LINKABLE
-
-#define li_next(list) (((list)->__head__).next)
-#define li_prev(list) (((list)->__head__).prev)
-
-#define li_foreach(list, type, iterator) \
-    for(type iterator = list; iterator; iterator = li_next(iterator))
-
-
-#endif//LI_SIMPLER_IMPLEMENTATION
-
-// restore warning '-Wmissing-field-initializers'
-#pragma GCC diagnostic pop
-
-#endif//__LINK_H
 /*
    ARENA
 */
@@ -877,342 +175,328 @@ int arg_list(ArgsSlice args, const char* flag, ArgsSlice* out) {
 }
 
 #endif//__HCH_ARGS_H
-#ifndef __HCH_STRING_H
-#define __HCH_STRING_H
+/*
+    DYNAMIC ARRAY
+*/
+
+#ifndef __DA_H
+#define __DA_H
 
 #include <stdlib.h>  
 #include <stdio.h>   
 #include <string.h>  
 #include <assert.h>  
-#include <stdbool.h> 
 
-#define STR_TEMP_SIZE 1024
-#define STR_NOPATTERN -1
+// This dynamic array is a trick i have seen @Tsoding use,
+// and its (probably) the simplest way of doing dynamic array i used.
+// 
+// It's sort of robust and convinient to use.
+// HOWEVER it's just a macro, which can be an issue when trying to port 
+// projects/libraries to other languages.
+//
+// My solution:
+//  Have api that either calls macros, or actual functions.
+//  You can change which one to use with simple toggle.
+//  Behaviour remains the same in both cases.
+//
+//  This way you can use da_append outside of C, 
+//  its pretty dirty with `void*` but you can create interfaces
+//  in pretty much any other language other than C, or use macros of any kind.
 
-#ifndef INLINE
-#define INLINE static inline
+
+#ifndef DA_ITEMS_NAME
+#   define DA_ITEMS_NAME       items
 #endif
 
-#define str__max(A,B) (A) > (B) ? (A) : (B)
-#define str__min(A,B) (A) > (B) ? (B) : (A)
-#define str__clamp(n, min, max) \
-     ((n) < (min)) ? (min) : ((n) > (max) ? (max) : (n)) 
-#define str_loop(I,N) for(size_t I = 0; I < (N); I++)
+#ifndef DA_GROW_FACTOR
+#   define DA_GROW_FACTOR 2
+#endif
 
-// Dynamic array - "da", can be
-// transmuted into String directly
-// (with the loss of capacity ofc)
+#ifndef DA_START_CAPACITY
+#   define DA_START_CAPACITY 32
+#endif
+
+
+// Simpler implementation means DA
+// doesn't use header to store array metadata
+// this ones relies on all items being in strict order
+// as in DaGeneric.
+#ifdef DA_SIMPLER_IMPLEMENTATION
+
+#ifdef DA_LINKABLE
+#   define da_append(DA, VAR) \
+        da_append_generic(&((DA)->DA_ITEMS_NAME), &(VAR), sizeof((VAR)));
+#else
+#   define da_append(DA, VAR) \
+        da_append_macro((DA), (VAR));
+#endif
+
+// generic "interface"
 typedef struct {
-	const char* ptr;
-	size_t 	len;
-} String;
+    void* items;
+    size_t count, capacity, typesize;
+} DaGeneric;
 
-// TODO:
-// Write access is avilable for all functions that return void
-// by default ptr is read only but some functions may modify it 
-// via forceful mutable cast
-INLINE String 	str_make(const char* cstr); 
-INLINE String 	str_make_sized(const char* cstr, size_t len); 
-INLINE String 	str_dup(String orig);
-INLINE bool 	str_is_empty(String s);
-INLINE void 	str_reset(String* s);
+#define da_append_macro(DA, VAR) do { \
+    if ((DA)->capacity == 0) {\
+        (DA)->capacity = DA_START_CAPACITY;\
+        (DA)->items = calloc(DA_START_CAPACITY,sizeof(*(DA)->items));\
+    }\
+    if ((DA)->count >= (DA)->capacity) {\
+        (DA)->capacity *= DA_GROW_FACTOR;\
+        (DA)->DA_ITEMS_NAME = realloc((DA)->DA_ITEMS_NAME,sizeof(*(DA)->DA_ITEMS_NAME) * (DA)->capacity);\
+    }\
+    (DA)->DA_ITEMS_NAME[((DA)->count)++] = VAR;\
+} while(0);
 
-String      str_trim(String s);
-String      str_trim_left(String s);
-String      str_trim_right(String s);
-String      str_substr(String orig, size_t index, size_t len);
-String      str_split_by_chars(String *s, const char* chars);
-bool        str_begins_with(String src, String pat);
-bool        str_ends_with(String src, String pat);
-bool        str_cmp(String l, String r);
-bool        str_cmp_cstr(String l, const char* str);
-int         str_has_pattern(String src, String pat);
-bool        str_is_integer(String s);
-bool        str_is_float(String s);
-#define     str_print(s) str_print_fmt(s,0,0)
-void	    str_print_fmt(String s, char* prefix, char* postfix);
-const char*	str_temp_cstr(String s);
-	
+void da_append_generic(void* da_ptr, void* varptr, size_t size) {
+    DaGeneric* da = da_ptr;
+    if (da->capacity == 0) {
+        da->capacity = DA_START_CAPACITY; 
+        da->DA_ITEMS_NAME = calloc(DA_START_CAPACITY , size);
+        da->typesize = size;
+    }
+    assert(size == da->typesize);
+    if (da->count >= da->capacity) {
+        da->capacity *= DA_GROW_FACTOR;
+        da->DA_ITEMS_NAME = realloc(da->DA_ITEMS_NAME,size * da->capacity);
+    }
+    memcpy(da->DA_ITEMS_NAME + (da->count * size), varptr, size);
+    da->count++;
+}
+
 //
-// IMPLEMENTATION
+// QoL (im lazy)
+//
+#define DA_HEADER(T) \
+        T* DA_ITEMS_NAME;\
+        size_t count, capacity, typesize;
+#define DA_HEAD(T) DA_HEADER(T)
+#define DA_IMPLEMENT(T) DA_HEADER(T)
+
+#define da_foreach(DA,I) for(size_t I = 0; I < DA.count; I++)
+// in case i ever change API, if you use da_get, you should be fine.
+#define da_get(DA)  ((DA).DA_ITEMS_NAME)
+#define da_free(DA) free((DA).DA_ITEMS_NAME)
+// END
+
+
+
+
+
+#else
+// Header Based implementation
+// More robust and concise
+#include <stdlib.h>
+#include <assert.h>
+#include <string.h>
+
+
+typedef struct {
+    size_t count, capacity, typesize;
+} __DaHead__;
+#define DaData __DaHead__ __da_head__;
+#define DaHead DaData
+
+void da_append_generic(
+        void** items_ptr, 
+        __DaHead__ *head, 
+        void* item, size_t tsize) 
+{
+#define items (*items_ptr)
+    if (head->capacity == 0 || !items) {
+        head->capacity = DA_START_CAPACITY; 
+        items = calloc(DA_START_CAPACITY,
+                sizeof(tsize));
+        head->typesize = tsize;
+    }
+    assert(tsize == head->typesize);
+    if (head->count >= head->capacity) {
+        head->capacity *= DA_GROW_FACTOR;
+        items = realloc(items,tsize * head->capacity);
+    }
+    memcpy(items + (head->count * tsize), item, tsize);
+    head->count++;
+#undef items
+}
+
+typedef struct {
+    int* items;
+    DaHead;
+} Ints;
+
+
+#define da_append(A, it) da_append_generic(\
+        ((void**) (&((A)->DA_ITEMS_NAME))),\
+        &((A)->__da_head__),\
+        &it, sizeof(it))
+#define da_count(arr)       ((arr).__da_head__.count)
+#define da_capacity(arr)    ((arr).__da_head__.capacity)
+#define da_get(arr)         ((arr).DA_ITEMS_NAME)
+
+#define da_foreach(A, iter) \
+    for(size_t iter = 0; iter < da_count(A); iter++)
+#define da_free(A) free(A.DA_ITEMS_NAME);
+
+
+#endif // DA_SIMPLER_IMPLEMENATION
+
+#endif// __DA_H
+#ifndef __LIST_H
+#define __LIST_H
+
+// remove useless warning 
+// hide warning '-Wmissing-field-initializers'
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+
+#include <stdlib.h>  
+#include <stdio.h>   
+#include <string.h>  
+#include <assert.h>  
+
+//
+// Linked List (legacy)
 //
 
-INLINE String str_zero(void) {
-    String s = {0};
-    return s;
-}
+#define li_macro_append(L, I) do {\
+    if(!(L)) {(L) = (I); (L)->tail = (L);}\
+    else {\
+        void* __list_item__ = (I);\
+        (L)->tail->next = __list_item__;\
+        (L)->tail = __list_item__;\
+    }\
+}while(0)
 
-INLINE String str_make_sized(const char* cstr, size_t size) {
-    String s = {
-        .len = size,
-        .ptr = cstr,
-    };
-    return s;
-}
+#define li_macro_next(LI) ((LI)->next)
 
-INLINE String str_make(const char* cstr) {
-    return str_make_sized(cstr, strlen(cstr));
-}
+#define li_macro_foreach(LI, T, I, ...) do {\
+   T* __next__ = (LI);\
+   T* __prev__ = (LI); (void)__prev__; (void)__next__;\
+   while(__next__) {\
+       T* I = __next__;\
+       {__VA_ARGS__}\
+       __prev__ = __next__;\
+       __next__ = __next__->next;\
+   }\
+} while(0)
 
-INLINE String str_dup(String s) {
-	String dup = {0};
-    memcpy(&dup, &s, sizeof(s));
-	return dup;
-}
-
-
-String str_range(String orig, size_t begin, size_t end) {
-    assert(begin == end && "can't have slice of size 0");
-    int b = str__min(begin, end);
-    int e = str__max(begin, end);
-    b = str__clamp(b, 0, (int)orig.len - 1);
-    e = str__clamp(e, 0, (int)orig.len - 1);
-
-    String s = {
-        .ptr = orig.ptr + begin,
-        .len = end - begin,
-    };
-
-    return s;
-}
-
-String str_substr(String orig, size_t index, size_t len) {
-	assert(index < orig.len && 
-			"Index overflows original string");
-	assert(len < orig.len && 
-			"Sub string length cannot be greated than origin len");
-	assert(index + len <= orig.len && 
-			"Slice go out of original string bounds");
+#define li_macro_defer(LI, T, ...) do {\
+   T* __next__ = (LI);\
+   T* __prev__ = (LI);\
+   while(__next__) {\
+       __prev__ = __next__;\
+       __next__ = __next__->next;\
+       {__VA_ARGS__}\
+       __prev__ = 0;\
+   } (LI) = 0;\
+} while(0)
 
 
-    String sub = {
-        .ptr = orig.ptr + index,
-        .len = len,
-    };
-	return sub;
-}
+// 
+// LINK LIST HEADER BASED
+//
 
+typedef struct {
+    size_t typesize;
+    void *next, *prev, *tail;
+} __ListData__;
+#define ListHead ListData
+#define ListData __ListData__ __head__;
 
+#define li_append_generic_macro(L, I) do {\
+    if(!(L)) {(L) = (I); (L)->__head__.tail = (L);}\
+    else {\
+        size_t __head_offset__ = (void*)&((L)->__head__) - (void*)(L);\
+        void* __list_item__ = (I);\
+        void* __tail__ = (L)->__head__.tail;\
+        /*Set prev item*/\
+        (I)->__head__.prev = __tail__;\
+        /*Set next item*/\
+        ((__ListData__*)(__tail__ + __head_offset__))->next = __list_item__;\
+        /*Set new tail*/\
+        (L)->__head__.tail = __list_item__;\
+    }\
+}while(0)
 
-bool str_begins_with(String src, String pat) {
-	assert(src.len != 0 && pat.len != 0 && 
-			"Source and pattern do not allow length of 0");
-	assert(src.len > pat.len && 
-			"Pattern string cannot be "
-			"equal or bigger to Source!"
-			"Check str_equal(String,String)"
-			);
+void li_append_generic_fn(
+        void**listptr, 
+        void* item, 
+        size_t item_size, 
+        void* list_header) 
+{
+    assert(listptr);
+    assert(item);
+    #define list (*listptr)
+    __ListData__ *head = list_header;
+    size_t offset = list_header - list;
 
-	bool equal = true;
-	for (uint i = 0; i < pat.len; i++)
-		equal = equal && (src.ptr[i] == pat.ptr[i]);
-	return equal;
-}
+    if (!list) { // pointer is null, the offset IS the list_header
+        list = item;
+        head = list + offset;
+        head->tail = list;
+        head->typesize = item_size;
+    } 
 
-bool str_ends_with(String src, String pat) {
-	assert(src.len != 0 && pat.len != 0 && 
-			"Source and pattern do not allow length of 0");
-	assert(src.len > pat.len && 
-			"Pattern string cannot be "
-			"equal or bigger to Source!"
-			"Check str_equal(String,String)"
-			);
-
-	bool equal = true;
-	size_t offset = src.len - pat.len;
-	for (uint i = (pat.len - 1); i > 0; i--) {
-		equal = equal && (src.ptr[i+offset] == pat.ptr[i]);
-		
-	}
-	return equal;
-}
-
-
-bool str_cmp_cstr(String s, const char* str) {
-    return (s.len == strlen(str)) && strncmp(s.ptr, str, s.len) == 0;
-}
-
-bool str_cmp(String l, String r) {
-	bool equal = true;
-	if(l.len == r.len) {
-		for (uint i = 0; i < l.len; i++)
-			equal = equal && (l.ptr[i] == r.ptr[i]);
-	} 
-	else 
-		return false;
-	return equal;
-}
-
-bool str_is_empty(String s) {
-	return (s.ptr == NULL || s.len == 0);
-}
-
-int str_has_pattern(String src, String pat) {
-	assert(src.len != 0 && pat.len != 0 && 
-			"Source and pattern do not allow length of 0");
-
-	assert(src.len > pat.len && 
-			"Pattern string cannot be "
-			"equal or bigger to Source!"
-			"Check str_are_equal(String,String)"
-			);
-
-	// src: [ h e l l o ! ] : len 6
-	// pat: [ o ! ]  		: len 2
-	
-	//   0 1 2 3 4
-	//   | | | | |
-	//   v v v v v
-	// [ h e l l o ! ]
-	//         [ o ! ]
-	//  last index to check is inclusive src.len - pat.len
-
-	size_t diff = src.len - pat.len; 
-
-	if (pat.len == 1){
-		for(uint i = 0; i < src.len; i++) {
-			if (src.ptr[i]==pat.ptr[0])
-				return true;
-		}
-	}
-	else
-		for(uint src_i = 0; src_i <= diff; src_i++) {
-			bool equal = true;
-
-			for(uint c = 0; c < pat.len; c++)
-				equal = equal && (src.ptr[src_i+c]==pat.ptr[c]);
-
-			if (equal)
-				return src_i;
-		}
-	return STR_NOPATTERN;
-}
-
-bool str_is_integer(String s) {
-	bool is_a_num = true;
-    if (!s.len) return false;
-	for(uint i = 0; i < s.len; i++)
-		is_a_num = is_a_num && (
-			(s.ptr[i] >= '0' &&  s.ptr[i] <= '9')
-			||	s.ptr[0] == '-'
-		);
-	return is_a_num;
-}
-
-bool str_is_float(String s) {
-	bool is_a_num = true;
-    if (!s.len) return false;
-	for(uint i = 0; i < s.len; i++)
-		is_a_num = is_a_num && (
-			(s.ptr[i] >= '0' &&  s.ptr[i] <= '9')
-			||	s.ptr[0] == '-' 
-			||	s.ptr[i] == '.'
-		);
-	return is_a_num;
-}
-
-
-char* str_create_cstr(String s) {
-	char* temp = calloc( (s.len+1)	,	sizeof(char));
-	for(uint i = 0; i < s.len+1; i++)
-		temp[i] = 0;
-	memcpy(temp,s.ptr,s.len);
-	return temp;
-}
-
-const char* str_temp_cstr(String s) {
-	static char buffer[STR_TEMP_SIZE];
-	memset(buffer,0,STR_TEMP_SIZE);
-	size_t len = (s.len < STR_TEMP_SIZE - 1) ? 
-		s.len : STR_TEMP_SIZE - 1;
-	strncpy(buffer,s.ptr,len);
-	return (const char*)buffer;
-}
-
-// returns left part of split, source gets reduced
-// if first matched character is in chars, returns left as str_zero(void)
-// when soucre is empty does nothing.
-String str_split_by_chars(String *s, const char* chars) {
-    String r = {0};
-    size_t chars_len = strlen(chars);
-    if (!s->len) return r;
-    r.ptr = s->ptr;
-    size_t len = s->len;
-    for(size_t i = 0; i < len; i++) {
-        for(size_t lc = 0; lc < chars_len; lc++) {
-            const bool match = *(s->ptr) == chars[lc];
-            if(match) {
-                s->ptr++;
-                s->len--;
-                if(!i) { 
-                    return str_zero();
-                } 
-                return r;
-            }
-        }
-        s->ptr++;
-        s->len--;
-        r.len++;
+    else {
+        assert(head->typesize == item_size);
+        head = list_header;
+        __ListData__* tail_head = head->tail + offset;
+        __ListData__* item_head = item + offset;
+        // set previous
+        void* tail = head->tail;
+        item_head->prev = tail;
+        // set next
+        tail_head->next = item;
+        head->tail = item;
     }
-    s->len = 0;
-    return r;
-}
 
-String str_trim_right(String s) {
-    String r = {
-        .ptr = s.ptr,
-        .len = s.len
-    };
-    for(int i = s.len-1; i >= 0; i--) {
-        bool is_space = 
-            r.ptr[i] == '\n' ||
-            r.ptr[i] == '\t' ||
-            r.ptr[i] == '\r' ||
-            r.ptr[i] == ' '  ;
-        if (!is_space) return r;
-        r.len--;
-    }
-    return r;
-}
-
-String str_trim_left(String s) {
-    String r = {
-        .ptr = s.ptr,
-        .len = s.len,
-    };
-    for(size_t i = 0; i < s.len; i++) {
-        bool is_space = 
-            *r.ptr == '\n' ||
-            *r.ptr == '\t' ||
-            *r.ptr == '\r' ||
-            *r.ptr == ' '  ;
-        if(!is_space) return r;
-        r.len--;
-        r.ptr++;
-    }
-    return r;
-}
-
-String str_trim(String s) {
-    return str_trim_left(str_trim_right(s));
+#undef list
 }
 
 
-void str_print_fmt(String s, char* pref, char* pofx) {
-	if (pref) printf("%s",pref);
-	str_loop(i,s.len) {
-		printf("%c",s.ptr[i]);
-	}
-	if (pofx) printf("%s",pofx);
-}
+#define li_append_generic_wrap(list, item)\
+        li_append_generic_fn((void**)&(list),\
+                item, sizeof(*item),\
+                &((list)->__head__))
 
-INLINE void str_reset(String* s) {
-	s->len = 0;
-	s->ptr = NULL;
-}
+#define li_generic_next(list) (((list)->__head__).next)
+#define li_generic_prev(list) (((list)->__head__).prev)
+
+#define li_generic_foreach(list, type, iterator) \
+    for(type iterator = list; iterator; iterator = li_next(iterator))
+
+// TODOS
+
+#define li_defer_generic #error "TODO: implement defer generic"
+
+//
+// Interface
+//
+
+#ifndef LI_GENERIC
+
+#define li_append(list, item)\
+        li_macro_append(list, item)
+#define li_next(list) li_macro_next(list)
+#define li_foreach(LI, T, I, ...) li_macro_foreach(LI, T, I, __VA_ARGS__)
+#define li_defer(LI, T, ...) li_macro_defer(LI, T, ...)
+
+#else
+
+#define li_append(list, item)\
+        li_append_generic_wrap(list, item)
+#define li_next(list) li_generic_next(list)
+#define li_foreach(LI, T, I) li_generic_foreach(LI, T, I)
+#define li_defer(LI, T) li_generic_defer()
+
+#endif
 
 
-#endif // __HCH_STRING_H
+// restore warning '-Wmissing-field-initializers'
+#pragma GCC diagnostic pop
+
+#endif//__LINK_H
 #ifndef __HCH_MAP_H
 #define __HCH_MAP_H
 
@@ -1238,9 +522,8 @@ typedef struct {
     size_t count, capacity, typesize;
 } Map;
 
-#ifndef __HCH_PRELUDE_H
+#include <stdint.h>
 typedef intmax_t sindex_t;
-#endif
 
 // hash functions: 
 // https://softwareengineering.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed#145633
@@ -1649,3 +932,736 @@ void  pool_release(Pool* p, index_t i) {
 }
 
 #endif //__HCH_POOL_H
+//
+// PRELUDE
+//
+/* stuff like:
+ *  - types
+ *  - common utility macros
+ *  - bitmask handling
+ *  - temporary allocator
+ *
+*/
+#ifndef __HCH_PRELUDE_H
+#define __HCH_PRELUDE_H
+
+
+#include <stdio.h>   
+#include <time.h>   
+#include <string.h>  
+#include <assert.h>  
+#include <stdbool.h> 
+#include <stdarg.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+typedef int8_t              i8;
+typedef int16_t             i16;
+typedef int32_t             i32;
+typedef int64_t             i64;
+typedef intmax_t            isize;
+
+typedef int8_t              s8;
+typedef int16_t             s16;
+typedef int32_t             s32;
+typedef int64_t             s64;
+typedef intmax_t            ssize;
+
+typedef uint8_t             u8;
+typedef uint16_t            u16;
+typedef uint32_t            u32;
+typedef uint64_t            u64;
+typedef size_t              usize;
+
+typedef float               f32;
+typedef double              f64;
+                              
+typedef const char*         istr;
+typedef char*               mstr;
+
+typedef size_t              index_t;
+typedef intmax_t            sindex_t;
+typedef unsigned char       bitmask8;
+typedef unsigned short      bitmask16;
+typedef unsigned int        bitmask32;
+typedef uint64_t            bitmask64;
+typedef int64_t             stime;
+typedef uint64_t            utime;
+
+
+//
+// MACROS
+//
+
+# define hc_max(A,B)            (A > B) ? A : B
+# define hc_min(A,B)            (A < B) ? A : B
+# define hc_loop(I,N)           for(size_t I = 0; I < (N); I++)
+# define hc_loopt(TI,N)         for(TI = 0; I < (N); I++)
+# define hc_range(n, min, max)  ((n)>=(min) && (n)<=(max))
+# define hc_clamp(n, min, max)  \
+     ((n) < (min)) ? (min) : ((n) > (max) ? (max) : (n)) 
+
+# define hc_arrlen(a)           (sizeof(a)/sizeof(a[0]))
+# define hc_cast(v, T)          ((T)v)
+# define hc_transmute(v, T)     *((T*)&(v))
+# define hc_zeroed(v)           memset(&(v), 0, sizeof(v))
+# define hc_unused(v)           ((void) (v))
+# define hc_roptr(v)            ((const void*) v)
+# define hc_cmp(l,r)            (memcmp(&(l),&(r),hc_min(sizeof(l),sizeof(r)))==0)
+# define hc_BREAKPOINT()        __asm__("int3")
+
+#ifdef HCH_STRIP_MACRO_PREFIX
+# define arrlen(a)       hc_arrlen(a) 
+# define cast(v, T)      hc_cast(v, T)     
+# define transmute(v, T) hc_transmute(v, T)
+# define zeroed(v)       hc_zeroed(v)      
+# define unused(v)       hc_unused(v)      
+# define roptr(v)        hc_roptr(v)       
+# define cmp(l,r)        hc_cmp(l,r)       
+# define BREAKPOINT()    hc_BREAKPOINT()   
+
+# define max(A,B)           hc_max(A,B)          
+# define min(A,B)           hc_min(A,B)          
+# define loop(I,N)          hc_loop(I,N)         
+# define loopt(TI,N)        hc_loopt(TI,N)       
+# define range(n, min, max) hc_range(n, min, max)
+# define clamp(n, min, max) hc_clamp(n, min, max)
+#endif//HCH_STRIP_PREFIX
+
+//
+// bitmasking
+//
+
+#ifndef HCH_FULL_BITMASK_PREFIX
+#   define bit_check(N, M)               ((N) & (M))
+#   define bit_toggle(N, M)              ((N) ^ (M))
+#   define bit_set(N, M)                 ((N) | (M))
+#   define bit_clear(N, M)               ((N) & (~(M)))
+#   define bit_get_chunk(m, off, size)   __bm_get_chunk((m),(off),(sz))
+#else
+#   define bitmask_toggle(N, M)             ((N) ^ (M))
+#   define bitmask_set(N, M)                ((N) | (M))
+#   define bitmask_clear(N, M)              ((N) & (~(M)))
+#   define bitmask_get_chunk(m, off, size)  __bm_get_chunk((m),(off),(sz))
+#endif
+
+u64 __bm_get_chunk(u64 mask, u8 offset, u8 size) {
+    int select_mask = 0;
+    for(int i = 0; i < size; i++) select_mask |= (1 << i);
+    return (mask >> offset) & select_mask;
+}
+
+
+//
+// allocation utilities
+//
+
+void* recalloc(void* ptr, size_t prev_size, size_t size) {
+    void* new_ptr = calloc(size, 1);
+    if(ptr) {
+        memcpy(new_ptr, ptr, prev_size);
+        free(ptr);
+    }
+    return new_ptr;
+}
+
+//
+// temporary allocator
+//
+#ifndef TEMP_ALLOCATOR_SIZE // 4 megs
+#   define TEMP_ALLOCATOR_SIZE 1024 * 1000 * 4
+#endif
+
+static unsigned int  __temp_allocator_current__ ;
+static unsigned char __temp_allocator_buffer__  [TEMP_ALLOCATOR_SIZE];
+
+void* temp_alloc(size_t size);
+void* temp_put_sized(void* item, size_t size);
+void* temp_string(const char* string);
+
+
+void* temp_alloc(size_t size) {
+    assert(size < TEMP_ALLOCATOR_SIZE);
+    // reset if can't fit
+    if (__temp_allocator_current__ + size > TEMP_ALLOCATOR_SIZE) 
+        __temp_allocator_current__ = 0;
+    void* mem = __temp_allocator_buffer__ +
+                __temp_allocator_current__;
+    __temp_allocator_current__ += size;
+    return mem;
+}
+
+void* temp_put_sized(void* item, size_t size) {
+    void* mem = temp_alloc(size);
+    memcpy(mem, item, size);
+    return mem;
+}
+
+void* temp_string(const char* string) {
+    return temp_put_sized((void*)string, strlen(string) + 1);
+}
+
+//
+// profiler
+//
+
+/* Just an array into which you log your profiling
+ * results, index into array is your enum, time saved in nanoseconds.
+ */
+
+#ifndef PROFILER_ENTRY_CAPACITY // i believe 512 timer entries is more than enough
+#   define PROFILER_ENTRY_CAPACITY 512
+#endif
+
+#define MICROSECOND 1000 
+#define MILLISECOND 1000*1000 
+#define SECOND      1000*1000*1000 
+
+typedef struct {
+    bool  finished;
+    utime result;
+    utime begin;
+} __profiler_table_entry__;
+static __profiler_table_entry__ 
+    __PROFILER_TABLE__ 
+        [PROFILER_ENTRY_CAPACITY];
+
+void profiler_begin     (unsigned int entry_id);
+void profiler_end       (unsigned int entry_id);
+utime profiler_get_ns   (unsigned int entry_id);
+utime profiler_get_ms   (unsigned int entry_id);
+double profiler_get_sec (unsigned int entry_id);
+
+void profiler_begin(unsigned int entry_id) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    assert(entry_id < PROFILER_ENTRY_CAPACITY);
+    __PROFILER_TABLE__[entry_id].finished = false;
+    __PROFILER_TABLE__[entry_id].begin =  
+        (utime)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+}
+
+void profiler_end(unsigned int entry_id) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    assert(entry_id < PROFILER_ENTRY_CAPACITY);
+    utime  after = (utime)
+        ts.tv_sec * 1000000000LL + ts.tv_nsec;
+    utime before = __PROFILER_TABLE__[entry_id].begin;
+    utime time_ns = after-before;
+    __PROFILER_TABLE__[entry_id].finished = true;
+    __PROFILER_TABLE__[entry_id].result = time_ns;
+}
+
+
+double profiler_get_sec(unsigned int entry_id) {
+    double time = (double)profiler_get_ns(entry_id)/((double)SECOND);
+    return time;
+}
+
+utime profiler_get_ms(unsigned int entry_id) {
+    utime time = profiler_get_ns(entry_id)/(MILLISECOND);
+    return time;
+}
+
+utime profiler_get_ns(unsigned int entry_id) {
+    assert(__PROFILER_TABLE__[entry_id].finished && "attempt to access a unfinished timer!");
+    utime time = __PROFILER_TABLE__[entry_id].result;
+    return time;
+}
+
+
+
+// custom assert
+
+#ifndef FAULT_TRIGGER
+#   ifdef  HCH_ASSERT_NO_BREAKPOINT
+#       define FAULT_TRIGGER // does nothing 
+#   else
+#       define FAULT_TRIGGER __asm__("int3")
+#   endif
+#endif
+
+#ifndef hch_assert
+#define hch_assert(COND,...) \
+    do { if (!(COND)) { \
+        fprintf(stderr,"Assertion at [%s:%s:%d]: ",__FILE__,__func__,__LINE__); \
+        fprintf(stderr,__VA_ARGS__); \
+        fprintf(stderr,"\n"); \
+        FAULT_TRIGGER;      \
+        exit(1);            \
+    }} while(0)
+#endif
+
+#endif // __HCH_PRELUDE_H
+/*
+   String Builder (Nob style)
+*/
+
+#include <stdlib.h>  
+#include <stdio.h>   
+#include <string.h>  
+#include <assert.h>  
+#include <stdarg.h>
+#include <stdbool.h>
+
+#ifndef __HCH_SB_H
+#define __HCH_SB_H
+
+typedef struct {
+    // transmutable -> DA , String
+    char*  items;
+    size_t count, capacity;
+
+    const char* spacer;
+} StringBuilder;
+
+#define sb_arrlit(...)          ((const char*[]) {__VA_ARGS__})
+#define sb_arrlen(arr)          (sizeof(arr) / sizeof((arr)[0]))
+#define sb_arrlit_len(...)      (sb_arrlen((__VA_ARGS__)))
+
+#define sb_min(a,b) ((a) > (b))? (b) : (a)
+#define sb_max(a,b) ((a) < (b))? (b) : (a)
+
+#ifndef __HCH_PRELUDE_H
+void* recalloc(void* ptr, size_t prev_size, size_t size) {
+    void* new_ptr = calloc(size, 1);
+    if(ptr) {
+        memcpy(new_ptr, ptr, prev_size);
+        free(ptr);
+    }
+    return new_ptr;
+}
+#endif
+
+bool sb_is_empty(StringBuilder sb) {
+    return !sb.items || !sb.items;
+}
+
+void sb__append(StringBuilder* sb, const char** items, size_t count) {
+    if (!count) return;
+    size_t append_size = 0;
+    size_t spacer_size = 0;
+
+    if (sb->spacer) spacer_size = strlen(sb->spacer); 
+
+    for(size_t i = 0; i < count; i++) {
+        if (!items[i]) continue;
+        append_size += strlen(items[i]);
+        if (i != count - 1 || i) 
+            append_size += spacer_size;
+    }
+    // null terminator
+    if(append_size) append_size++;
+
+    if (!sb->items || !sb->capacity) {
+        sb->capacity = 32;
+        sb->items = calloc(32, 1);
+    }
+    if (sb->count + append_size >= sb->capacity) {
+        size_t new_size = sb_max(sb->capacity*2, sb->capacity + append_size);
+        sb->items = recalloc(sb->items, sb->capacity, new_size);
+        sb->capacity = new_size;
+    }
+
+    for(size_t i = 0; i < count; i++)  {
+        if (!items[i]) continue;
+        size_t len = strlen(items[i]);
+        if(items[i]) {
+            memcpy(sb->items + sb->count, items[i], len);
+            sb->count += len;
+            
+            if (spacer_size && (i != count-1)) {
+                memcpy(sb->items + sb->count, sb->spacer, spacer_size);
+                sb->count += spacer_size;
+            }
+
+        }
+    }
+}
+
+void sb_reverse(StringBuilder* s) {
+	if (sb_is_empty(*s))
+		return;
+
+	char* ptr_cpy = calloc(s->count, sizeof(char));
+	if (!ptr_cpy) assert(false && "Failed to allocate" "memory with calloc(n,s)"); 
+    memcpy(ptr_cpy, s->items, s->count);
+	// [ h i ! ] : len 3
+	//   i i i
+	//   0 1 2
+	//     ^ ^
+	//	   | (end) = (len - 1)
+	//	   |
+	//	   +-> (end) - i
+
+	for(uint i = 0; i < s->count; i++) {
+		size_t reverse = (s->count-1) - i;
+		s->items[i] = ptr_cpy[reverse];
+	}
+	free(ptr_cpy);
+}
+
+void sb_appendf(StringBuilder* sb, const char* fmt, ...) {
+    va_list args, args_len;
+    va_start(args, fmt);
+    va_copy(args_len, args);
+    size_t size = vsnprintf(0,0,fmt,args_len);
+    va_end(args_len);
+
+    const char* temp = calloc(size+1,1);
+    vsnprintf((char*)temp, size+1, fmt, args);
+    sb__append(sb, &temp, 1);
+    free((void*)temp);
+    
+    va_end(args);
+}
+
+void sb_clear(StringBuilder* sb) {
+    memset(sb->items, 0, sb->count);
+    sb->count = 0;
+}
+
+#define sb_append(sb, ...) \
+    sb__append(\
+            sb,\
+            sb_arrlit(__VA_ARGS__),\
+            sb_arrlen(sb_arrlit(__VA_ARGS__)))\
+
+#endif//__HCH_SB_H
+#ifndef __HCH_STRING_H
+#define __HCH_STRING_H
+
+#include <stdlib.h>  
+#include <stdio.h>   
+#include <string.h>  
+#include <assert.h>  
+#include <stdbool.h> 
+
+#define STR_TEMP_SIZE 1024
+#define STR_NOPATTERN -1
+
+#ifndef INLINE
+#define INLINE static inline
+#endif
+
+#define str__max(A,B) (A) > (B) ? (A) : (B)
+#define str__min(A,B) (A) > (B) ? (B) : (A)
+#define str__clamp(n, min, max) \
+     ((n) < (min)) ? (min) : ((n) > (max) ? (max) : (n)) 
+#define str_loop(I,N) for(size_t I = 0; I < (N); I++)
+
+// Dynamic array - "da", can be
+// transmuted into String directly
+// (with the loss of capacity ofc)
+typedef struct {
+	const char* ptr;
+	size_t 	len;
+} String;
+
+// TODO:
+// Write access is avilable for all functions that return void
+// by default ptr is read only but some functions may modify it 
+// via forceful mutable cast
+INLINE String 	str_make(const char* cstr); 
+INLINE String 	str_make_sized(const char* cstr, size_t len); 
+INLINE String 	str_dup(String orig);
+INLINE bool 	str_is_empty(String s);
+INLINE void 	str_reset(String* s);
+
+String      str_trim(String s);
+String      str_trim_left(String s);
+String      str_trim_right(String s);
+String      str_substr(String orig, size_t index, size_t len);
+String      str_split_by_chars(String *s, const char* chars);
+bool        str_begins_with(String src, String pat);
+bool        str_ends_with(String src, String pat);
+bool        str_cmp(String l, String r);
+bool        str_cmp_cstr(String l, const char* str);
+int         str_has_pattern(String src, String pat);
+bool        str_is_integer(String s);
+bool        str_is_float(String s);
+#define     str_print(s) str_print_fmt(s,0,0)
+void	    str_print_fmt(String s, char* prefix, char* postfix);
+const char*	str_temp_cstr(String s);
+	
+//
+// IMPLEMENTATION
+//
+
+INLINE String str_zero(void) {
+    String s = {0};
+    return s;
+}
+
+INLINE String str_make_sized(const char* cstr, size_t size) {
+    String s = {
+        .len = size,
+        .ptr = cstr,
+    };
+    return s;
+}
+
+INLINE String str_make(const char* cstr) {
+    return str_make_sized(cstr, strlen(cstr));
+}
+
+INLINE String str_dup(String s) {
+	String dup = {0};
+    memcpy(&dup, &s, sizeof(s));
+	return dup;
+}
+
+
+String str_range(String orig, size_t begin, size_t end) {
+    assert(begin == end && "can't have slice of size 0");
+    int b = str__min(begin, end);
+    int e = str__max(begin, end);
+    b = str__clamp(b, 0, (int)orig.len - 1);
+    e = str__clamp(e, 0, (int)orig.len - 1);
+
+    String s = {
+        .ptr = orig.ptr + begin,
+        .len = end - begin,
+    };
+
+    return s;
+}
+
+String str_substr(String orig, size_t index, size_t len) {
+	assert(index < orig.len && 
+			"Index overflows original string");
+	assert(len < orig.len && 
+			"Sub string length cannot be greated than origin len");
+	assert(index + len <= orig.len && 
+			"Slice go out of original string bounds");
+
+
+    String sub = {
+        .ptr = orig.ptr + index,
+        .len = len,
+    };
+	return sub;
+}
+
+
+
+bool str_begins_with(String src, String pat) {
+	assert(src.len != 0 && pat.len != 0 && 
+			"Source and pattern do not allow length of 0");
+	assert(src.len > pat.len && 
+			"Pattern string cannot be "
+			"equal or bigger to Source!"
+			"Check str_equal(String,String)"
+			);
+
+	bool equal = true;
+	for (uint i = 0; i < pat.len; i++)
+		equal = equal && (src.ptr[i] == pat.ptr[i]);
+	return equal;
+}
+
+bool str_ends_with(String src, String pat) {
+	assert(src.len != 0 && pat.len != 0 && 
+			"Source and pattern do not allow length of 0");
+	assert(src.len > pat.len && 
+			"Pattern string cannot be "
+			"equal or bigger to Source!"
+			"Check str_equal(String,String)"
+			);
+
+	bool equal = true;
+	size_t offset = src.len - pat.len;
+	for (uint i = (pat.len - 1); i > 0; i--) {
+		equal = equal && (src.ptr[i+offset] == pat.ptr[i]);
+		
+	}
+	return equal;
+}
+
+
+bool str_cmp_cstr(String s, const char* str) {
+    return (s.len == strlen(str)) && strncmp(s.ptr, str, s.len) == 0;
+}
+
+bool str_cmp(String l, String r) {
+	bool equal = true;
+	if(l.len == r.len) {
+		for (uint i = 0; i < l.len; i++)
+			equal = equal && (l.ptr[i] == r.ptr[i]);
+	} 
+	else 
+		return false;
+	return equal;
+}
+
+bool str_is_empty(String s) {
+	return (s.ptr == NULL || s.len == 0);
+}
+
+int str_has_pattern(String src, String pat) {
+	assert(src.len != 0 && pat.len != 0 && 
+			"Source and pattern do not allow length of 0");
+
+	assert(src.len > pat.len && 
+			"Pattern string cannot be "
+			"equal or bigger to Source!"
+			"Check str_are_equal(String,String)"
+			);
+
+	// src: [ h e l l o ! ] : len 6
+	// pat: [ o ! ]  		: len 2
+	
+	//   0 1 2 3 4
+	//   | | | | |
+	//   v v v v v
+	// [ h e l l o ! ]
+	//         [ o ! ]
+	//  last index to check is inclusive src.len - pat.len
+
+	size_t diff = src.len - pat.len; 
+
+	if (pat.len == 1){
+		for(uint i = 0; i < src.len; i++) {
+			if (src.ptr[i]==pat.ptr[0])
+				return true;
+		}
+	}
+	else
+		for(uint src_i = 0; src_i <= diff; src_i++) {
+			bool equal = true;
+
+			for(uint c = 0; c < pat.len; c++)
+				equal = equal && (src.ptr[src_i+c]==pat.ptr[c]);
+
+			if (equal)
+				return src_i;
+		}
+	return STR_NOPATTERN;
+}
+
+bool str_is_integer(String s) {
+	bool is_a_num = true;
+    if (!s.len) return false;
+	for(uint i = 0; i < s.len; i++)
+		is_a_num = is_a_num && (
+			(s.ptr[i] >= '0' &&  s.ptr[i] <= '9')
+			||	s.ptr[0] == '-'
+		);
+	return is_a_num;
+}
+
+bool str_is_float(String s) {
+	bool is_a_num = true;
+    if (!s.len) return false;
+	for(uint i = 0; i < s.len; i++)
+		is_a_num = is_a_num && (
+			(s.ptr[i] >= '0' &&  s.ptr[i] <= '9')
+			||	s.ptr[0] == '-' 
+			||	s.ptr[i] == '.'
+		);
+	return is_a_num;
+}
+
+
+char* str_create_cstr(String s) {
+	char* temp = calloc( (s.len+1)	,	sizeof(char));
+	for(uint i = 0; i < s.len+1; i++)
+		temp[i] = 0;
+	memcpy(temp,s.ptr,s.len);
+	return temp;
+}
+
+const char* str_temp_cstr(String s) {
+	static char buffer[STR_TEMP_SIZE];
+	memset(buffer,0,STR_TEMP_SIZE);
+	size_t len = (s.len < STR_TEMP_SIZE - 1) ? 
+		s.len : STR_TEMP_SIZE - 1;
+	strncpy(buffer,s.ptr,len);
+	return (const char*)buffer;
+}
+
+// returns left part of split, source gets reduced
+// if first matched character is in chars, returns left as str_zero(void)
+// when soucre is empty does nothing.
+String str_split_by_chars(String *s, const char* chars) {
+    String r = {0};
+    size_t chars_len = strlen(chars);
+    if (!s->len) return r;
+    r.ptr = s->ptr;
+    size_t len = s->len;
+    for(size_t i = 0; i < len; i++) {
+        for(size_t lc = 0; lc < chars_len; lc++) {
+            const bool match = *(s->ptr) == chars[lc];
+            if(match) {
+                s->ptr++;
+                s->len--;
+                if(!i) { 
+                    return str_zero();
+                } 
+                return r;
+            }
+        }
+        s->ptr++;
+        s->len--;
+        r.len++;
+    }
+    s->len = 0;
+    return r;
+}
+
+String str_trim_right(String s) {
+    String r = {
+        .ptr = s.ptr,
+        .len = s.len
+    };
+    for(int i = s.len-1; i >= 0; i--) {
+        bool is_space = 
+            r.ptr[i] == '\n' ||
+            r.ptr[i] == '\t' ||
+            r.ptr[i] == '\r' ||
+            r.ptr[i] == ' '  ;
+        if (!is_space) return r;
+        r.len--;
+    }
+    return r;
+}
+
+String str_trim_left(String s) {
+    String r = {
+        .ptr = s.ptr,
+        .len = s.len,
+    };
+    for(size_t i = 0; i < s.len; i++) {
+        bool is_space = 
+            *r.ptr == '\n' ||
+            *r.ptr == '\t' ||
+            *r.ptr == '\r' ||
+            *r.ptr == ' '  ;
+        if(!is_space) return r;
+        r.len--;
+        r.ptr++;
+    }
+    return r;
+}
+
+String str_trim(String s) {
+    return str_trim_left(str_trim_right(s));
+}
+
+
+void str_print_fmt(String s, char* pref, char* pofx) {
+	if (pref) printf("%s",pref);
+	str_loop(i,s.len) {
+		printf("%c",s.ptr[i]);
+	}
+	if (pofx) printf("%s",pofx);
+}
+
+INLINE void str_reset(String* s) {
+	s->len = 0;
+	s->ptr = NULL;
+}
+
+
+#endif // __HCH_STRING_H

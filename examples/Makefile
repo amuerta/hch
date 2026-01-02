@@ -1,18 +1,9 @@
-run: string
+run: list_and_arena
 
 run-all: da list_and_arena sb map pol args arena string
 
 build-header:
-	cat ../src/prelude.h > ../hc.h
-	cat ../src/da.h >> ../hc.h
-	cat ../src/sb.h >> ../hc.h
-	cat ../src/link.h >> ../hc.h
-	cat ../src/arena.h >> ../hc.h
-	cat ../src/args.h >> ../hc.h
-	cat ../src/string.h >> ../hc.h
-	cat ../src/map.h >> ../hc.h
-	cat ../src/pool.h >> ../hc.h
-
+	cat ../src/*.h > ../hc.h
 
 string:
 	cc -o ./exec/string string.c -ggdb -pg -Wextra -Wall -fsanitize=address

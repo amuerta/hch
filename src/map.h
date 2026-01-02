@@ -23,9 +23,8 @@ typedef struct {
     size_t count, capacity, typesize;
 } Map;
 
-#ifndef __HCH_PRELUDE_H
+#include <stdint.h>
 typedef intmax_t sindex_t;
-#endif
 
 // hash functions: 
 // https://softwareengineering.stackexchange.com/questions/49550/which-hashing-algorithm-is-best-for-uniqueness-and-speed#145633
