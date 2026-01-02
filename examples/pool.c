@@ -1,5 +1,5 @@
 #define INCLUDE_POOL
-#include "../hc.h"
+#include "../packaged/hc.h"
 
 int main(void) {
     Pool p = pool_new(int);  

@@ -1,7 +1,7 @@
 
 #define INCLUDE_ARENA
 #define HCH_ARENA_IMPLEMENTATION
-#include "../hc.h"
+#include "../packaged/hc.h"
 
 // cc -o NAME NAME.c -ggdb -pg -Wextra -Wall -fsanitize=address
 int main(void) {

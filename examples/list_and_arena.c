@@ -9,6 +9,8 @@
 #include "../hc.h"
 #endif
 
+#define li_append hc_li_append
+#define li_foreach hc_li_foreach
 
 typedef struct Person {
     const char* name;

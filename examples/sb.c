@@ -1,6 +1,6 @@
 #define INCLUDE_STRING_BUILDER
 
-#include "../hc.h"
+#include "../packaged/hc.h"
 
 // similar to nob.h string builder, i made mine for fun.
 

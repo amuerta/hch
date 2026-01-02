@@ -15,7 +15,7 @@
 // Linked List (legacy)
 //
 
-#define li_macro_append(L, I) do {\
+#define hc_li_macro_append(L, I) do {\
     if(!(L)) {(L) = (I); (L)->tail = (L);}\
     else {\
         void* __list_item__ = (I);\
@@ -24,12 +24,12 @@
     }\
 }while(0)
 
-#define li_macro_next(LI) ((LI)->next)
-#define li_macro_foreach(list, type, iterator) \
-    for(type iterator = list; iterator; iterator = li_next(iterator))
+#define hc_li_macro_next(LI) ((LI)->next)
+#define hc_li_macro_foreach(list, type, iterator) \
+    for(type iterator = list; iterator; iterator = hc_li_next(iterator))
 
 
-#define li_macro_defer(LI, T, ...) do {\
+#define hc_li_macro_defer(LI, T, ...) do {\
    T* __next__ = (LI);\
    T* __prev__ = (LI);\
    while(__next__) {\
@@ -52,7 +52,7 @@ typedef struct {
 #define ListHead ListData
 #define ListData __ListData__ __head__;
 
-#define li_append_generic_macro(L, I) do {\
+#define hc_li_append_generic_macro(L, I) do {\
     if(!(L)) {(L) = (I); (L)->__head__.tail = (L);}\
     else {\
         size_t __head_offset__ = (void*)&((L)->__head__) - (void*)(L);\
@@ -67,7 +67,7 @@ typedef struct {
     }\
 }while(0)
 
-void li_append_generic_fn(
+void hc_li_append_generic_fn(
         void**listptr, 
         void* item, 
         size_t item_size, 
@@ -103,45 +103,45 @@ void li_append_generic_fn(
 }
 
 
-#define li_append_generic_wrap(list, item)\
-        li_append_generic_fn((void**)&(list),\
+#define hc_li_append_generic_wrap(list, item)\
+        hc_li_append_generic_fn((void**)&(list),\
                 item, sizeof(*item),\
                 &((list)->__head__))
 
-#define li_generic_next(list) (((list)->__head__).next)
-#define li_generic_prev(list) (((list)->__head__).prev)
+#define hc_li_generic_next(list) (((list)->__head__).next)
+#define hc_li_generic_prev(list) (((list)->__head__).prev)
 
-#define li_generic_foreach(list, type, iterator) \
-    for(type iterator = list; iterator; iterator = li_next(iterator))
+#define hc_li_generic_foreach(list, type, iterator) \
+    for(type iterator = list; iterator; iterator = hc_li_next(iterator))
 
 // TODOS
 
-#define li_defer_generic #error "TODO: implement defer generic"
+#define hc_li_defer_generic #error "TODO: implement defer generic"
 
 //
 // Interface
 //
 
-#ifndef LI_GENERIC
+#ifdef HC_LI_MACRO_BASED
 
-#define li_append(list, item)\
-        li_macro_append(list, item)
-#define li_next(list) li_macro_next(list)
-#define li_foreach(LI, T, I, ...) li_macro_foreach(LI, T, I)
-#define li_defer(LI, T, ...) li_macro_defer(LI, T, ...)
+#define hc_li_append(list, item)\
+        hc_li_macro_append(list, item)
+#define hc_li_next(list) hc_li_macro_next(list)
+#define hc_li_foreach(LI, T, I, ...) hc_li_macro_foreach(LI, T, I)
+#define hc_li_defer(LI, T, ...) hc_li_macro_defer(LI, T, ...)
 
 #else
 
-#define li_append(list, item)\
-        li_append_generic_wrap(list, item)
-#define li_next(list) li_generic_next(list)
-#define li_foreach(LI, T, I) li_generic_foreach(LI, T, I)
-#define li_defer(LI, T) li_generic_defer()
+#define hc_li_append(list, item)\
+        hc_li_append_generic_wrap(list, item)
+#define hc_li_next(list) hc_li_generic_next(list)
+#define hc_li_foreach(LI, T, I) hc_li_generic_foreach(LI, T, I)
+#define hc_li_defer(LI, T) hc_li_generic_defer()
 
 #endif
 
 
 // restore warning '-Wmissing-field-initializers'
 #pragma GCC diagnostic pop
-
+// END
 #endif//__LINK_H

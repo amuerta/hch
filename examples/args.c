@@ -1,6 +1,6 @@
 
 #define INCLUDE_ARGS
-#include "../hc.h"
+#include "../packaged/hc.h"
 
 int main(int argc, char** argv) {
     ArgsSlice args = {argv, argc};

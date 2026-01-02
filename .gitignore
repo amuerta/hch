@@ -1,2 +1,6 @@
 # dirs
 /tests
+
+# files
+gmon.out
+benchmarks

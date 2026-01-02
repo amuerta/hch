@@ -1,14 +1,13 @@
 
 #define NOB_IMPLEMENTATION
 
-#define INCLUDE_MAP
-#define HCH_MAP_IMPLEMENTATION
-
 #include "../nob.h"
 
 // legacy non header based dynamic array
-#define DA_SIMPLER_IMPLEMENTATION
-#include "../hc.h"
+#define HC_DA_MACRO_BASED
+#include "../packaged/hc.h"
+
+#define da_append hc_da_append
 
 typedef struct {
     Nob_String_View word;
@@ -108,7 +107,7 @@ int main(void) {
     Words f = {0};
 
     Nob_String_Builder sb = {0};
-    if(!nob_read_entire_file("./files/pg100.txt", &sb)) {
+    if(!nob_read_entire_file("./examples/files/pg100.txt", &sb)) {
         nob_log(NOB_INFO, "FAILED TO READ A FILE"); 
         return -1;
     }

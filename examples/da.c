@@ -1,46 +1,22 @@
-#define DA_START_CAPACITY 2
-// FOR TESTING
-// #define DA_SIMPLER_IMPLEMENTATION
-#include "../hc.h"
+#define HC_DA_START_CAPACITY 2
+#define HC_DA_ITEMS_NAME v
+#define HC_DA_MACRO_BASED
+#include "../src/da.h"
 
-#ifdef DA_SIMPLER_IMPLEMENTATION
-// OLDER EXAMPLE
-typedef struct {
-    const char* name;
-    int age;
-} Person;
+#define da_append hc_da_append
+#define da_foreach hc_da_foreach
+#define da_free hc_da_free
+#define da_get hc_da_get
 
 typedef struct {
-    Person* items;
+    // you need items either way
+    // you can redefine the name as anything before including da.h
+    int* v;
+
+    // this is needed for macro version.
     size_t count, capacity, typesize;
-    // OR DA_HEADER(Person); // instead of all above
-} People;
 
-void person_add(People* ppl, const char* name, int age) {
-    Person p = {name,age};
-    da_append(ppl, p);
-}
-
-
-int main(void) {
-    People ppl = {0};
-    person_add(&ppl, "Jackson", 21);
-    person_add(&ppl, "Amu", 20);
-    person_add(&ppl, "Victor", 18);
-    person_add(&ppl, "Gerald", 34);
-    person_add(&ppl, "Garry", 28);
-
-    da_foreach(ppl, i) {
-        Person p = da_get(ppl)[i];
-        printf("%lu %s-%i\n",i,p.name,p.age);
-    }
-    da_free(ppl);
-}
-
-#else
-// NEWER EXAMPLE
-typedef struct {
-    int* items;
+    // this is needed for header version
     DaHead;
 } Numbers;
 
@@ -63,5 +39,3 @@ int main(void) {
     }
     da_free(xs);
 }
-#endif
-
