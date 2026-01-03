@@ -1,4 +1,4 @@
-run: da
+run: map_counting map
 
 run-all: da list_and_arena sb map pool args arena string
 
@@ -44,6 +44,10 @@ set:
 map:
 	cc -o ./examples/exec/map ./examples/map.c -ggdb -pg -Wextra -Wall -fsanitize=address
 	./examples/exec/map
+
+map_counting:
+	cc -o ./examples/exec/map_counting ./examples/map_counting.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./examples/exec/map_counting
 
 args:
 	cc -o ./examples/exec/args ./examples/args.c -ggdb -pg -Wextra -Wall

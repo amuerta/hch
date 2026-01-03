@@ -1,145 +1,96 @@
-
-#define NOB_IMPLEMENTATION
-
-#include "../nob.h"
-
-// legacy non header based dynamic array
-#define HC_DA_MACRO_BASED
-#include "../packaged/hc.h"
-
-#define da_append hc_da_append
+#include "../src/map.h"
 
 typedef struct {
-    Nob_String_View word;
-    int count;
-} Word;
+    int*    items;
+    MapHead map_head;
+} IntMap;
 
-typedef struct {
-    Word* items;
-    size_t count, capacity;
-} Words;
 
-typedef struct {
-    Map head;
-    int* items;
-} CountMap;
 
-// count interative
-void split_to_words(Words* all, Nob_String_Builder text) {
-    Nob_String_View slice = nob_sb_to_sv(text);
-    Nob_String_View crop;
-    
-    while(slice.count) {
-        crop = nob_sv_chop_by_delim(&slice, ' ');
-        //printf(SV_Fmt"\n", (int)crop.count, crop.data);
-        Word w = {
-            .word = crop,
-            .count = 0
-        };
-        da_append(all,w);
-    }
-}
+#define             GLOBAL_MAP_SIZE 256
+static MapKeySlice  GLOBAL_MAP_KEYS [GLOBAL_MAP_SIZE];
+static int          GLOBAL_MAP_ITEMS[GLOBAL_MAP_SIZE];
 
-void count_words_linear(Words* all, Words* found) {
-    for(size_t i = 0; i < all->count; i++) {
-        bool saw = false;
-        Word current = all->items[i];
-        for(size_t j = 0; j < found->count; j++) {
-            Word seen = found->items[j];
-            if (nob_sv_eq(current.word, seen.word)) {
-                found->items[j].count++;
-                saw = true;
-            }
-        }
-        if (!saw) {
-            da_append(found, current);
-        }
-    }
+IntMap global_map(void) {
+    IntMap map = {
+        .items = GLOBAL_MAP_ITEMS,
+        .map_head = {
+            .capacity = GLOBAL_MAP_SIZE,
+            .keys     = GLOBAL_MAP_KEYS,
+            .typesize = sizeof(*GLOBAL_MAP_ITEMS),
+            .heap_allocated = false,
+        },
+    };
+    hc_map_set_default_hashes(&map.map_head);
+    return map;
 }
 
 
-
-void resize_words_map_if_needed(CountMap* m) {
-    Map* map = &m->head;
-
-    if (map_load(*map) > 0.75) {
-        int* new_items = calloc(map->capacity*2, sizeof(*m->items));
-        map_resize(map, map->capacity*2, {
-                new_items[newid] = m->items[oldid];
-                });
-        free(m->items);
-        m->items = new_items;
-    }
+void map_put(IntMap* map, int value, const char* key) {
+    int *item;
+    item = hc_map_get_or_reserve(map, hc_map_key(key));
+    *item = value;
 }
 
-void count_words_map(Words all, CountMap* m) {
-    Nob_String_View v;
-    for(size_t i = 0; i < all.count; i++) {
-        v = all.items[i].word;
-        if (!v.count) continue;
-        Map* map = &m->head;
-    
-        resize_words_map_if_needed(m);
-    
-        long int index = map_query(*map, map_slice(v.data, v.count));
-        if (index == -1) {
-            long int new = map_reserve(map, map_slice(v.data, v.count));
-            assert(new != -1 && "map is full");
-            m->items[new] = 0;
-        } else {
-            m->items[index]++;
-        }
-
-        nob_temp_reset();
-    }
+void map_assert_key_value(IntMap* m, int value, const char* key) {
+    int* item;
+    item = hc_map_get(m, hc_map_key(key));
+    printf("> making sure '%s' exists with %i ", key, value);
+    assert(*item == value);
+    printf(".. OK\n");
 }
 
+void test_map_global(void) {
+    IntMap gmap = global_map();   
 
-#define COUNT 1024*64
+    map_put(&gmap, 420, "funny1");
+    map_put(&gmap, 13377, "funny2");
+    map_put(&gmap, 69, "funny3");
 
-int main(void) {
-    CountMap m = {
-        .items = calloc(COUNT, sizeof(int)),
-        .head = map_alloc(0, 0)
+    map_assert_key_value(&gmap, 420,    "funny1");
+    map_assert_key_value(&gmap, 13377,  "funny2");
+    map_assert_key_value(&gmap, 69,     "funny3");
+
+    assert(!hc_map_get(&gmap, hc_map_key("funny4")));
+    assert(!hc_map_get(&gmap, hc_map_key("funny_3")));
+    assert(!hc_map_get(&gmap, hc_map_key("funn3")));
+}
+
+void test_map_heap(void) {
+    int count = 2;
+    IntMap map = {
+        .items = calloc         (count * sizeof(int) , 1),
+        .map_head = hc_map_heap (count,  sizeof(int))
     };
 
-    Words w = {0};
-    Words f = {0};
+    map_put(&map, 1, "1");
+    map_put(&map, 2, "2");
 
-    Nob_String_Builder sb = {0};
-    if(!nob_read_entire_file("./examples/files/pg100.txt", &sb)) {
-        nob_log(NOB_INFO, "FAILED TO READ A FILE"); 
-        return -1;
+    hc_map_grow(&map, 8);
+
+    map_put(&map, 3, "3");
+    map_put(&map, 4, "4");
+    map_put(&map, 5, "5");
+    map_put(&map, 6, "6");
+    map_put(&map, 7, "7");
+    map_put(&map, 8, "8");
+
+
+    // print all key+value pairs to show new map
+    for(size_t i = 0; i < map.map_head.capacity; i++) {
+        MapKeySlice key = map.map_head.keys[i];
+        if(hc_map_key_is_empty(key)) continue;
+
+        printf("#%li   '%.*s': %i\n",
+                i, 
+                hc_map_key_fmt(map.map_head.keys[i]), 
+                map.items[i]);
     }
 
-    split_to_words(&w, sb);
+    hc_map_free(&map);
+}
 
-    printf("split into = %lu slices\n", w.count);
-
-    // ~1000x speedup!
-    //count_words_linear(&w, &f); // ~30-40 seconds
-    count_words_map(w, &m); // ~30-40 ms
-
-    printf("linear.count = %lu\n", f.count);
-    printf("map.count = %lu\n", m.head.count);
-
-    // i know the correct count
-    assert(m.head.count == 49820);
-
-    // TODO: show both methods results
-    // (i.m. sort using count and print result)
-    // TODO: aslo measure time
-    printf("if this has no assert, it means map did its job correctly\n");
-
-    nob_sb_free(sb);
-
-    free(w.items);
-    free(f.items);
-    
-    
-    map_clear(&m.head);
-    free(m.items);
-    //list_test(); 
-    //slice_test();
- 
+int main(void) {
+    test_map_global();
+    test_map_heap();
 }
