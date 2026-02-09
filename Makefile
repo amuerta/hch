@@ -1,6 +1,6 @@
-run: map_counting map
+run: arr
 
-run-all: da list_and_arena sb map pool args arena string
+run-all: arr list_and_arena sb map pool args arena string
 
 build-header:
 	cat ./src/*.h > ./packaged/hc.h
@@ -13,9 +13,9 @@ bitmasking:
 	cc -o ./examples/exec/bitmasking ./examples/bitmasking.c -ggdb -pg -Wextra -Wall -fsanitize=address
 	./examples/exec/bitmasking
 
-da:
-	cc -o ./examples/exec/da ./examples/da.c -ggdb -pg -Wextra -Wall -fsanitize=address
-	./examples/exec/da
+arr:
+	cc -o ./examples/exec/array ./examples/array.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./examples/exec/array
 
 trie:
 	cc -o ./examples/exec/trie ./examples/trie.c -ggdb -pg -Wextra -Wall
