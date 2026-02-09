@@ -99,7 +99,7 @@ void sb_reverse(StringBuilder* s) {
 	//	   |
 	//	   +-> (end) - i
 
-	for(uint i = 0; i < s->count; i++) {
+	for(int i = 0; i < s->count; i++) {
 		size_t reverse = (s->count-1) - i;
 		s->items[i] = ptr_cpy[reverse];
 	}
