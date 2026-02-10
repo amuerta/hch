@@ -1,28 +1,16 @@
-
-//#define LI_GENERIC
-
-#if 1
 #include "../src/link.h"
 #include "../src/arena.h"
 #include "../src/prelude.h"
-#else
-#include "../hc.h"
-#endif
 
 #define li_append hc_li_append
 #define li_foreach hc_li_foreach
+#define List hc_Link
 
 typedef struct Person {
+    ImplementLink;
+ 
     const char* name;
     unsigned char age;
-
-    // You customize the macros interface,
-    // or wrap around `li_append_generic_fn` function 
-    // or do this without it
-    struct Person *tail, *next, *prev;
-
-    // you can do this with #define LI_GENERIC
-    ListHead;
 } Person;
 
 char* person_fmt(Person p) {
@@ -32,14 +20,13 @@ char* person_fmt(Person p) {
     return temp;
 } 
 
-Person* arena_new_person(Arena* arena, char* name, unsigned int age) {
-    Person* item = arena_alloc(arena, sizeof(Person));
+List(Person) arena_new_person(Arena* arena, char* name, unsigned int age) {
+    List(Person) item = arena_alloc(arena, sizeof(Person));
     item->name = name;
     item->age = age;
     return item;
 }
 
-// silence dumpass warnings
 
 Person person(const char* name, int age) {
     Person p = {0};
@@ -48,8 +35,9 @@ Person person(const char* name, int age) {
     return p;
 }
 
+
 int main(void) {
-    Person* list = 0;
+    List(Person) list = 0;
 
     printf(" STACK ALLOCATED NODES \n");
     Person juliet = person("juliet", 23);
@@ -90,7 +78,6 @@ int main(void) {
     li_foreach(list, Person*, it) {
         printf("%s\n", person_fmt(*it));
     }
-
 
     arena_free(&people);
 }

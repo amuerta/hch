@@ -1,56 +1,25 @@
 #ifndef __LIST_H
 #define __LIST_H
 
-// remove useless warning 
-// hide warning '-Wmissing-field-initializers'
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
-
 #include <stdlib.h>  
 #include <stdio.h>   
 #include <string.h>  
 #include <assert.h>  
 
-//
-// Linked List (legacy)
-//
-
-#define hc_li_macro_append(L, I) do {\
-    if(!(L)) {(L) = (I); (L)->tail = (L);}\
-    else {\
-        void* __list_item__ = (I);\
-        (L)->tail->next = __list_item__;\
-        (L)->tail = __list_item__;\
-    }\
-}while(0)
-
-#define hc_li_macro_next(LI) ((LI)->next)
-#define hc_li_macro_foreach(list, type, iterator) \
-    for(type iterator = list; iterator; iterator = hc_li_next(iterator))
-
-
-#define hc_li_macro_defer(LI, T, ...) do {\
-   T* __next__ = (LI);\
-   T* __prev__ = (LI);\
-   while(__next__) {\
-       __prev__ = __next__;\
-       __next__ = __next__->next;\
-       {__VA_ARGS__}\
-       __prev__ = 0;\
-   } (LI) = 0;\
-} while(0)
-
-
 // 
 // LINK LIST HEADER BASED
 //
 
+// this strictly exists for self-documentation purposes.
+#define hc_Link(T) T*
+
 typedef struct {
     size_t typesize;
     void *next, *prev, *tail;
-} __ListData__;
-#define ListHead ListData
-#define ListData __ListData__ __head__;
+} __LinkData__;
+#define ImplementLink LinkData
+#define LinkHead LinkData
+#define LinkData __LinkData__ __head__;
 
 #define hc_li_append_generic_macro(L, I) do {\
     if(!(L)) {(L) = (I); (L)->__head__.tail = (L);}\
@@ -61,7 +30,7 @@ typedef struct {
         /*Set prev item*/\
         (I)->__head__.prev = __tail__;\
         /*Set next item*/\
-        ((__ListData__*)(__tail__ + __head_offset__))->next = __list_item__;\
+        ((__LinkData__*)(__tail__ + __head_offset__))->next = __list_item__;\
         /*Set new tail*/\
         (L)->__head__.tail = __list_item__;\
     }\
@@ -76,7 +45,7 @@ void hc_li_append_generic_fn(
     assert(listptr);
     assert(item);
     #define list (*listptr)
-    __ListData__ *head = list_header;
+    __LinkData__ *head = list_header;
     size_t offset = list_header - list;
 
     if (!list) { // pointer is null, the offset IS the list_header
@@ -87,10 +56,10 @@ void hc_li_append_generic_fn(
     } 
 
     else {
-        assert(head->typesize == item_size);
+        assert(head->typesize == item_size && "Missmatch in type sizes when appending");
         head = list_header;
-        __ListData__* tail_head = head->tail + offset;
-        __ListData__* item_head = item + offset;
+        __LinkData__* tail_head = head->tail + offset;
+        __LinkData__* item_head = item + offset;
         // set previous
         void* tail = head->tail;
         item_head->prev = tail;
@@ -139,9 +108,6 @@ void hc_li_append_generic_fn(
 #define hc_li_defer(LI, T) hc_li_generic_defer()
 
 #endif
+/* END */
 
-
-// restore warning '-Wmissing-field-initializers'
-#pragma GCC diagnostic pop
-// END
-#endif//__LINK_H
+#endif/*__LINK_H*/

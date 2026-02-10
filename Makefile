@@ -1,4 +1,4 @@
-run: arr
+run: list_and_arena
 
 run-all: arr list_and_arena sb map pool args arena string
 
