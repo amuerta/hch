@@ -1,9 +1,14 @@
-run: mem
+run: link_tree
 
 run-all: mem arr list_and_arena sb map pool args arena string
 
 build-header:
 	cat ./src/*.h > ./packaged/hc.h
+
+
+link_tree:
+	cc -o ./examples/exec/tree ./examples/tree.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./examples/exec/tree
 
 string:
 	cc -o ./examples/exec/string ./examples/string.c -ggdb -pg -Wextra -Wall -fsanitize=address
@@ -12,7 +17,6 @@ string:
 bitmasking:
 	cc -o ./examples/exec/bitmasking ./examples/bitmasking.c -ggdb -pg -Wextra -Wall -fsanitize=address
 	./examples/exec/bitmasking
-
 
 mem:
 	cc -o ./examples/exec/memory ./examples/memory.c -ggdb -pg -Wextra -Wall -fsanitize=address
