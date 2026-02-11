@@ -62,7 +62,7 @@ typedef uint64_t            utime;
 # define hc_max(A,B)            (A > B) ? A : B
 # define hc_min(A,B)            (A < B) ? A : B
 # define hc_loop(I,N)           for(size_t I = 0; I < (N); I++)
-# define hc_loopt(TI,N)         for(TI = 0; I < (N); I++)
+# define hc_loopt(T,I,N)        for(T I = 0; I < (N); I++)
 # define hc_range(n, min, max)  ((n)>=(min) && (n)<=(max))
 # define hc_clamp(n, min, max)  \
      ((n) < (min)) ? (min) : ((n) > (max) ? (max) : (n)) 
@@ -70,20 +70,14 @@ typedef uint64_t            utime;
 # define hc_arrlen(a)           (sizeof(a)/sizeof(a[0]))
 # define hc_cast(v, T)          ((T)v)
 # define hc_transmute(v, T)     *((T*)&(v))
-# define hc_zeroed(v)           memset(&(v), 0, sizeof(v))
 # define hc_unused(v)           ((void) (v))
-# define hc_roptr(v)            ((const void*) v)
-# define hc_cmp(l,r)            (memcmp(&(l),&(r),hc_min(sizeof(l),sizeof(r)))==0)
 # define hc_BREAKPOINT()        __asm__("int3")
 
 #ifdef HCH_STRIP_MACRO_PREFIX
 # define arrlen(a)       hc_arrlen(a) 
 # define cast(v, T)      hc_cast(v, T)     
 # define transmute(v, T) hc_transmute(v, T)
-# define zeroed(v)       hc_zeroed(v)      
 # define unused(v)       hc_unused(v)      
-# define roptr(v)        hc_roptr(v)       
-# define cmp(l,r)        hc_cmp(l,r)       
 # define BREAKPOINT()    hc_BREAKPOINT()   
 
 # define max(A,B)           hc_max(A,B)          
@@ -115,56 +109,6 @@ u64 __bm_get_chunk(u64 mask, u8 offset, u8 size) {
     int select_mask = 0;
     for(int i = 0; i < size; i++) select_mask |= (1 << i);
     return (mask >> offset) & select_mask;
-}
-
-
-//
-// allocation utilities
-//
-
-void* recalloc(void* ptr, size_t prev_size, size_t size) {
-    void* new_ptr = calloc(size, 1);
-    if(ptr) {
-        memcpy(new_ptr, ptr, prev_size);
-        free(ptr);
-    }
-    return new_ptr;
-}
-
-//
-// temporary allocator
-//
-#ifndef TEMP_ALLOCATOR_SIZE // 4 megs
-#   define TEMP_ALLOCATOR_SIZE 1024 * 1000 * 4
-#endif
-
-static unsigned int  __temp_allocator_current__ ;
-static unsigned char __temp_allocator_buffer__  [TEMP_ALLOCATOR_SIZE];
-
-void* temp_alloc(size_t size);
-void* temp_put_sized(void* item, size_t size);
-void* temp_string(const char* string);
-
-
-void* temp_alloc(size_t size) {
-    assert(size < TEMP_ALLOCATOR_SIZE);
-    // reset if can't fit
-    if (__temp_allocator_current__ + size > TEMP_ALLOCATOR_SIZE) 
-        __temp_allocator_current__ = 0;
-    void* mem = __temp_allocator_buffer__ +
-                __temp_allocator_current__;
-    __temp_allocator_current__ += size;
-    return mem;
-}
-
-void* temp_put_sized(void* item, size_t size) {
-    void* mem = temp_alloc(size);
-    memcpy(mem, item, size);
-    return mem;
-}
-
-void* temp_string(const char* string) {
-    return temp_put_sized((void*)string, strlen(string) + 1);
 }
 
 //

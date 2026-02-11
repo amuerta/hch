@@ -1,6 +1,6 @@
-run: list_and_arena
+run: mem
 
-run-all: arr list_and_arena sb map pool args arena string
+run-all: mem arr list_and_arena sb map pool args arena string
 
 build-header:
 	cat ./src/*.h > ./packaged/hc.h
@@ -12,6 +12,11 @@ string:
 bitmasking:
 	cc -o ./examples/exec/bitmasking ./examples/bitmasking.c -ggdb -pg -Wextra -Wall -fsanitize=address
 	./examples/exec/bitmasking
+
+
+mem:
+	cc -o ./examples/exec/memory ./examples/memory.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./examples/exec/memory
 
 arr:
 	cc -o ./examples/exec/array ./examples/array.c -ggdb -pg -Wextra -Wall -fsanitize=address
