@@ -1,11 +1,7 @@
 #include "../src/map.h"
+#define Map hc_Map
 
-typedef struct {
-    int*    items;
-    MapHead map_head;
-} IntMap;
-
-
+typedef Map(int) IntMap;
 
 #define             GLOBAL_MAP_SIZE 256
 static MapKeySlice  GLOBAL_MAP_KEYS [GLOBAL_MAP_SIZE];
@@ -28,13 +24,13 @@ IntMap global_map(void) {
 
 void map_put(IntMap* map, int value, const char* key) {
     int *item;
-    item = hc_map_get_or_reserve(map, hc_map_key(key));
+    item = hc_map_ref_or_reserve(map, hc_map_key(key));
     *item = value;
 }
 
 void map_assert_key_value(IntMap* m, int value, const char* key) {
     int* item;
-    item = hc_map_get(m, hc_map_key(key));
+    item = hc_map_ref(m, hc_map_key(key));
     printf("> making sure '%s' exists with %i ", key, value);
     assert(*item == value);
     printf(".. OK\n");
@@ -51,9 +47,9 @@ void test_map_global(void) {
     map_assert_key_value(&gmap, 13377,  "funny2");
     map_assert_key_value(&gmap, 69,     "funny3");
 
-    assert(!hc_map_get(&gmap, hc_map_key("funny4")));
-    assert(!hc_map_get(&gmap, hc_map_key("funny_3")));
-    assert(!hc_map_get(&gmap, hc_map_key("funn3")));
+    assert(!hc_map_ref(&gmap, hc_map_key("funny4")));
+    assert(!hc_map_ref(&gmap, hc_map_key("funny_3")));
+    assert(!hc_map_ref(&gmap, hc_map_key("funn3")));
 }
 
 void test_map_heap(void) {

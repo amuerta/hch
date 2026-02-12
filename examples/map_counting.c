@@ -9,6 +9,7 @@
 #include "../src/map.h"
 
 #define da_append hc_da_append
+#define Map hc_Map
 
 typedef struct {
     Nob_String_View word;
@@ -20,10 +21,7 @@ typedef struct {
     size_t count, capacity;
 } Words;
 
-typedef struct {
-    int     *items;
-    MapHead head;
-} CountMap;
+typedef Map(int) CountMap;
 
 // count interative
 void split_to_words(Words* all, Nob_String_Builder text) {
@@ -61,9 +59,8 @@ void count_words_linear(Words* all, Words* found) {
 
 
 void resize_words_map_if_needed(CountMap* m) {
-    MapHead* map = &m->head;
 
-    if (hc_map_load(*map) > 0.75) {
+    if (hc_map_load(m->map_head) > 0.75) {
         assert(!"TODO");
     }
 }
@@ -73,12 +70,12 @@ void count_words_map(Words all, CountMap* m) {
     for(size_t i = 0; i < all.count; i++) {
         v = all.items[i].word;
         if (!v.count) continue;
-        MapHead* map = &m->head;
+        // MapHead* map = &m->map_head;
     
         resize_words_map_if_needed(m);
     
         MapKeySlice key = hc_map_slice(v.data, v.count);
-        int* n = hc_map_get_or_reserve_generic(map, (void**)&m->items, sizeof(*m->items), key);
+        int* n = hc_map_ref_or_reserve(m, key);
         (*n)++;
 
         nob_temp_reset();
@@ -91,7 +88,7 @@ void count_words_map(Words all, CountMap* m) {
 int main(void) {
     CountMap m = {
         .items = calloc(COUNT, sizeof(int)),
-        .head = hc_map_heap(COUNT, sizeof(int))
+        .map_head = hc_map_heap(COUNT, sizeof(int))
     };
 
     Words w = {0};
@@ -112,10 +109,10 @@ int main(void) {
     count_words_map(w, &m); // ~30-40 ms
 
     printf("linear.count = %lu\n", f.count);
-    printf("map.count = %lu\n", m.head.count);
+    printf("map.count = %lu\n", m.map_head.count);
 
     // i know the correct count
-    assert(m.head.count == 49820);
+    assert(m.map_head.count == 49820);
 
     // TODO: show both methods results
     // (i.m. sort using count and print result)
@@ -128,9 +125,7 @@ int main(void) {
     free(f.items);
     
     
-    hc_map_clear(&m.head);
-    hc_map_heap_free(&m.head);
-    free(m.items);
+    hc_map_free(&m);
     //list_test(); 
     //slice_test();
  
