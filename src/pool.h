@@ -1,214 +1,267 @@
-//
-// POOL datastructure
-//
+#ifndef __EOBJECT_POOL_H
+#define __EOBJECT_POOL_H
 
-#include <stdlib.h>  
-#include <stdio.h>   
-#include <string.h>  
-#include <assert.h>  
+/*  POOL DATA STRUCTURE
+ *
+ *  Pool keeps location of objects in memory consistent and you access them via pool_index instead of pointer, even tho using a pointer
+ *  is a valid method too. Benefit of Pool is that when working with large number of Entities, insertion and deletion operations take `O(1)`.
+ *  
+ *  NOTES:
+ *      + resizing `Pool` doesn't update `free_list` as this operation can be confusing or ambiguous depending on your way of use. So when you downsize
+ *          your pool - migrating is done manually.
+ *      + API of pool is designed to follow my "allocator free" design idea, thus you work with buffers that are fed into pool, instead of giving/defining allocator functions. 
+ *          Link to my post about this idea: <TBD>
+ * */
 
-// TODO:? make it use not void* but user defined union/struct?
-
-#ifndef __HCH_POOL_H
-#define __HCH_POOL_H
-
-#include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <stdbool.h>
 #include <string.h>
+#include <stdio.h>
+#include <assert.h>
 
+#define hc_Pool(T) struct {                                 \
+    struct { char infomask; T item;} *items;                \
+    pool_index      *free_list;                             \
+    size_t          count, capacity, max_count, free_count; \
+    bool            allocated_on_heap;                      \
+}
 
-// TODO: use inline __asm__(int3) to have a proper breakpoint 
-// instead of this old funny hack
-// cause segmentaion fault to be able to run gdb on breakpoint
-#ifndef FAULT_TRIGGER
-#   ifdef  HCH_ASSERT_NO_BREAKPOINT
-#       define FAULT_TRIGGER // does nothing 
-#   else
-#       define FAULT_TRIGGER __asm__("int3")
-#   endif
-#endif
+#define HC_POOL_INVALID_INDEX ((size_t)(-1))
+typedef size_t pool_index;
 
-#ifndef hch_assert
-#define hch_assert(COND,...) \
-    do { if (!(COND)) { \
-        fprintf(stderr,"Assertion at [%s:%s:%d]: ",__FILE__,__func__,__LINE__); \
-        fprintf(stderr,__VA_ARGS__); \
-        fprintf(stderr,"\n"); \
-        FAULT_TRIGGER;      \
-        exit(1);            \
-    }} while(0)
-#endif
-typedef size_t              index_t;
-typedef unsigned char       bitmask8;
-
-#define INDEX_INVALID ((size_t)-1)
-
-typedef enum {
-	PoolState_allocated = 1,
-} PoolState;
+// PoolSlot is a generic container to fit your data
+typedef struct {
+    unsigned char   infomask; // bool
+    unsigned char   data[];
+} hc_PoolSlotBase;
 
 typedef struct {
-    size_t      typesize;
-    char*       type;
+    hc_PoolSlotBase *items;
+    pool_index      *free_list;
+    size_t          count, capacity, 
+                    max_count, free_count;
+    bool            allocated_on_heap;
+} hc_PoolBase;
 
-    void*       data;
-    index_t*      free_indexes;
+enum {
+    HC_POOL_SLOT_IS_EMPTY = 0,
+    HC_POOL_SLOT_IS_USED  = 1,
+};
+
+
+#define hc_pool_type_size(P) sizeof(((P)->items[0].item))
+
+#define pool_get(P, i)\
+    ((P)->items[pool_assert_index(i)].item)
+
+#define pool_insert(P, I)\
+    pool_insert_ex(P, hc_pool_type_size(P), I, sizeof(*(I)))
+
+#define pool_from_heap(P, count) \
+    pool_from_heap_ex(P, hc_pool_type_size(P), count)
+
+#define pool_from_buffer(P, buf, size) \
+    pool_from_buffer_ex(P, hc_pool_type_size(P), buf, size)
+
+#define pool_resize_buffer(P, new_buf, size)\
+    pool_resize_buffer_ex(P, hc_pool_type_size(P), new_buf, size)
+
+#define pool_grow_buffer(P, new_buf, size)\
+    pool_grow_buffer_ex(P, hc_pool_type_size(P), new_buf, size)
+
+
+#define pool_max(A,B) (((A) > (B)) ? (A) : (B))
+#define pool_min(A,B) (((A) < (B)) ? (A) : (B))
+
+
+#ifndef POOL_HEADER_ONLY
+
+// creates Pool that fits into given buffer, lazy way to create a pool out of
+// static buffer, for testing purpouses.
+
+void pool_from_buffer_ex(void* p, size_t typesize, void* buffer, size_t buffer_size) {
+    assert(p && "expected valid pointer too pool");
+    hc_PoolBase *pool = p;
     
+    size_t indexsize        = sizeof(pool->free_list[0]);
+    size_t full_typesize    = sizeof(pool->items[0]) + typesize;
+    // float  split_ratio      = pool_max(full_typesize, indexsize) / pool_min(full_typesize, indexsize);
+    size_t count_items_fit  = buffer_size / (full_typesize + indexsize);
+    // split buffer between free_list and items:
+    // [{              }xxx{     }]
+    //  ^ items         |  ^ free_list
+    //                  +- padding (leftover bytes from fitting process)
+    void* items     =  buffer;
+    void* free_list = (buffer + (buffer_size - indexsize*count_items_fit));
 
-    void        (*destructor) (void*);
-    size_t      capacity;
-    size_t      count;
-    size_t      free_count;
-    size_t      max_size;
-} Pool;
-
-#ifndef POOL_MALLOC
-#   define POOL_MALLOC(S) malloc(S)
-#endif
-
-#ifndef POOL_FREE
-#   define POOL_FREE(P) free(P)
-#endif
-
-#ifndef POOL_REALLOC
-#   define POOL_REALLOC(P,S) realloc(P,S)
-#endif
-
-
-#ifndef IGNORE_RETURN
-#   define IGNORE_RETURN (void)
-#endif
-
-#define __POOL_typestring(T) #T
-
-#ifndef POOL_DEFAULT_CAPACITY
-#   define POOL_DEFAULT_CAPACITY 32
-#endif
-
-#define POOL_ITEM_POINTER(p,index) \
-    p->data + index * (p->typesize + sizeof(bitmask8));
-
-
-
-//      //
-/* API  */
-//      //
-
-#define     pool_new(T)                         pool__init(NULL, POOL_DEFAULT_CAPACITY, sizeof(T), __POOL_typestring(T))
-#define     pool_init(P,T,S)                    IGNORE_RETURN pool__init(P, S, sizeof(T), __POOL_typestring(T))
-void        pool_resize(Pool* p, size_t newsize);
-index_t     pool_reserve(Pool* p);
-void        pool_release(Pool* p, index_t i);
-void*       pool_refer(Pool* p, index_t i);
-
-
-Pool pool__init(Pool* self, size_t capacity, size_t typesize, char* type) {
-    const size_t data_sz_bytes = capacity * ( sizeof(bitmask8) + typesize );
-    const size_t idxs_sz_bytes = capacity * sizeof(index_t);
-
-    Pool new = {
-        .type = type,
-        .typesize = typesize,
-        .capacity = capacity,
-        .count = 0,
-        .free_count = 0,
-        .max_size = 0,
-
-        // alloc memory,
-        .data = POOL_MALLOC(data_sz_bytes),
-        .free_indexes = POOL_MALLOC(idxs_sz_bytes),
-    };
-
-    if (!self) {
-        return new;
-    } 
-
-    memcpy(self, &new, sizeof(new));
-    return *self;
+    pool->items      = items;
+    pool->free_list  = free_list;
+    pool->capacity   = count_items_fit;
+    pool->items      = buffer;
+    pool->allocated_on_heap = false;
 }
 
-void pool_free(Pool* p) {
-    free(p->data);
-    free(p->free_indexes);
-    memset(p,0,sizeof(*p));
+
+void pool_from_heap_ex(void* p, size_t typesize, size_t count) {
+    assert(p && "expected valid pointer too pool");
+    assert(count && typesize);
+    hc_PoolBase *pool = p;
+
+    size_t item_size =      count * (sizeof(pool->items[0]));
+    size_t free_list_size = count * (sizeof(pool->free_list[0]));
+    assert(item_size && free_list_size);
+
+    void* data = calloc(count, item_size + free_list_size); 
+    pool_from_buffer_ex(p, typesize, data, item_size+free_list_size);
+    pool->allocated_on_heap = true;
 }
 
-void* pool_refer(Pool* p, index_t i) {
-    hch_assert(p, "Expected to have valid pointer got NULL");
-    hch_assert(p->data, "Expected to have valid data pointer initilized");
-    void* ptr = POOL_ITEM_POINTER(p,i);
-    bitmask8 state = *((bitmask8*)ptr);
-    return (state) ? ptr : NULL;
+size_t pool_measure(size_t count, size_t typesize);
+
+size_t pool_measure(size_t count, size_t typesize) {
+    const hc_PoolBase       pool;
+    const hc_PoolSlotBase   slot;
+    return count*(typesize + sizeof(slot)) 
+         + count*sizeof(pool.free_list[0]);
 }
 
-void pool_resize(Pool* p, size_t newsize) {
-    const size_t newsize_bytes = newsize * (sizeof(bitmask8) + p->typesize);
-    const size_t newsize_indexes_bytes = newsize * sizeof(index_t);
+void* pool_resize_buffer_ex(void* p, size_t typesize, void* new_buffer, size_t new_buffer_size) {
+    hc_PoolBase *pool   = p;
+    hc_PoolBase copy    = *pool;
+    void* old_ptr       = pool->items;
 
-    if (p->capacity == newsize) 
-        return;
-    else if (p->capacity > newsize) {
-        // TODO:
-        // impl destructor
-    } 
- 
-    p->capacity     = newsize;
-    p->data         = POOL_REALLOC(p->data,         newsize_bytes           );
-    p->free_indexes = POOL_REALLOC(p->free_indexes, newsize_indexes_bytes   );
+    void* old_items     = copy.items;
+    void* old_free_list = copy.free_list;
+
+    size_t old_items_size = 0,
+           old_free_list_size = 0,
+           new_items_size = 0,
+           new_free_list_size = 0;
+
+    old_items_size       = (typesize + sizeof(pool->items[0]))*pool->capacity;
+    old_free_list_size   = sizeof(pool->free_list[0])*pool->capacity;
+    pool_from_buffer_ex(pool, typesize, new_buffer, new_buffer_size);
+    new_items_size       = (typesize + sizeof(pool->items[0]))*pool->capacity;
+    new_free_list_size   = sizeof(pool->free_list[0])*pool->capacity;
+
+    size_t items_size     = pool_min(old_items_size, new_items_size);
+    size_t free_list_size = pool_min(old_free_list_size, new_free_list_size);
+
+    if(old_items_size > new_items_size) {
+        pool->max_count = pool->capacity;
+        pool->count = pool->capacity;
+    } else 
+        pool->count = copy.count;
+
+    memcpy(pool->items, old_items, items_size);
+    memcpy(pool->free_list, old_free_list, free_list_size);
+
+    return old_ptr;
 }
 
-#define pool_append(P, VAR) \
-    pool__append(P, &(VAR), sizeof(VAR))
-
-index_t pool__append(Pool* p, void* data, size_t typesize) {
-    index_t i = pool_reserve(p);
-    if (i == INDEX_INVALID) 
-        return INDEX_INVALID;
-
-    hch_assert(typesize == p->typesize, 
-            "Expected to have a type that equal or less than pool typesize");
-    memcpy(pool_refer(p,i),data,typesize);
-    return i;
+void* pool_grow_buffer_ex(void* p, size_t typesize, void* new_buffer, size_t new_buffer_size) {
+    hc_PoolBase *pool = p;
+    assert(pool_measure(pool->capacity, typesize) < new_buffer_size && "`pool_grow_buffer` was given smaller buffer size then before.");
+    return pool_resize_buffer_ex(p, typesize, new_buffer, new_buffer_size);
 }
 
-index_t pool_reserve(Pool* p) {
-    index_t index = INDEX_INVALID;
+
+inline void pool_heap_free(void* p) {
+    hc_PoolBase *pool = p;
+    assert(pool->allocated_on_heap);
+    if(pool->items) free(pool->items);
+}
+
+// TODO: slightly improve performace by stopping after seeing the last item count wise.
+bool pool_ref_next(void* pool, size_t typesize, void** out) {
+    (void) typesize;
+    hc_PoolBase *p = pool;
+    static pool_index id = 0;
+    if(id >= p->capacity) {
+        id = 0;
+        return false;
+    }
+    void* ptr = p->items + id * sizeof(p->items[0]);
+    if(ptr) *out = ptr;
+    id++;
+    return true;
+}
+
+bool pool_check_index(pool_index i) {
+    return i != HC_POOL_INVALID_INDEX;
+}
+
+void pool_assert_index(pool_index i) {
+    assert(pool_check_index(i) && "Attempt to access unset item");
+}
+
+    
+bool pool_has_space(void* pool) {
+    hc_PoolBase *p = pool;
+    return p->count < p->capacity;
+}
+
+bool pool_need_resize(void* pool) {
+    hc_PoolBase *p = pool;
+    return p->count >= p->capacity;
+}
+
+
+
+pool_index pool_reserve(void* pool, size_t typesize) {
+    hc_PoolBase *p = pool;
+    assert(p->items && p->free_list && p->capacity && typesize);
+    pool_index index = (size_t)(-1);
     if (p->free_count > 0) {
-        index = p->free_indexes[p->free_count-1];
+        index = p->free_list[p->free_count-1];
         p->free_count--;
     } else {
         index = p->count;
     }
-    //debug("Reserved id: %u\n",ptr);
-    hch_assert(index != INDEX_INVALID, "Failed to reserve entity");
-    hch_assert(p->count < p->capacity, "Attempt to buffer overflow");
+    assert(index != HC_POOL_INVALID_INDEX   && "Failed to reserve entity");
+    assert(p->count < p->capacity           && "Attempt to buffer overflow");
 
-    bitmask8* state = POOL_ITEM_POINTER(p, index);
-    *state |= PoolState_allocated;
-
+    size_t fullsize = sizeof(p->items[0]) + typesize ;
+    hc_PoolSlotBase* item = p->items + fullsize*index;
+    item->infomask = HC_POOL_SLOT_IS_USED;
     p->count++;
-    if (p->count > p->max_size) {
-        p->max_size = p->count;
+    
+    if (p->count > p->max_count) {
+        p->max_count = p->count;
     }
     return index;
 }
 
-void  pool_release(Pool* p, index_t i) {
+void pool_release(void* pool, size_t typesize, pool_index i) {
+    hc_PoolBase *p = pool;
+    assert(p->items && p->free_list && p->capacity && typesize);
     if (p->count==0)
         return;
+    assert(i < p->capacity && "Attempt to access Out of Bounds");
 
-    hch_assert(i < p->capacity, "Attempt to access Out of Bounds");
-    bitmask8* state = POOL_ITEM_POINTER(p,i);
+    size_t fullsize = sizeof(p->items[0]) + typesize ;
+    hc_PoolSlotBase* item = (p->items + i*fullsize);
 
-    if (!(*state & PoolState_allocated))
-        return;
- 
-    p->free_indexes[p->free_count] = i;
+    if (!item->infomask) return;
+
+    p->free_list[p->free_count] = i;
     p->free_count++;
 
-    *state ^= PoolState_allocated;
+    item->infomask = false;
     p->count--;
 }
 
-#endif //__HCH_POOL_H
+
+pool_index pool_insert_ex(void* pool, size_t typesize, void* item, size_t size) {
+    hc_PoolBase *p = pool;
+    assert(typesize == size);
+    pool_index i = pool_reserve(pool, typesize);
+    size_t fullsize = sizeof(p->items[0]) + typesize ;
+    void* it = p->items + fullsize*i;
+    memcpy(it, item, size);
+    return i;
+}
+
+#endif // POOL_HEADER_ONLY
+
+#endif//__EOBJECT_POOL_H

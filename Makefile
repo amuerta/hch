@@ -1,10 +1,9 @@
-run: map
+run: pool
 
 run-all: mem arr link_tree list_and_arena sb map pool args arena string
 
 build-header:
 	cat ./src/*.h > ./packaged/hc.h
-
 
 link_tree:
 	cc -o ./examples/exec/tree ./examples/tree.c -ggdb -pg -Wextra -Wall -fsanitize=address
