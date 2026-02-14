@@ -8,7 +8,6 @@
 #include <stdbool.h> 
 #include <stdint.h>
 
-
 // This map is intent-ed to be initialized by you
 // for convenience there are `hc_map_heap` functions
 // that allocate map via libc calloc, 
@@ -49,19 +48,15 @@
 
 #define hc_map_key_fmt(MS)  (int)(MS).count, (MS).items
 
-#define hc_map_get_or_reserve(v, M, K) \
-    ((void) hc_map_ref_or_reserve_wrap(v, M, K))
+#define hc_map_get_or_reserve(M, K) \
+    ((M)->items[hc_map_get_or_reserve_generic(\
+        &((M)->map_head), K\
+    )])
 
-#define hc_map_ref_or_reserve(M, K) \
-    (hc_map_ref_or_reserve_wrap(NULL, M, K))
-
-#define hc_map_ref(M, K) \
-    (hc_map_ref_wrap(NULL, M, K))
-
-#define hc_map_get(v, M, K) \
-    ((void) hc_map_ref_wrap(v, M, K))
-
-
+#define hc_map_get(M, K) \
+    ((M)->items[hc_map_get_generic(\
+        &((M)->map_head), K\
+    )])
 
 /*
    TODO: consider making it a function so passing a pointer with size 
@@ -133,7 +128,9 @@ long int            hc_map_query       (MapHead  m, MapKeySlice string);
 long int            hc_map_take     (MapHead* m, MapKeySlice string);
 void                hc_map_clear       (MapHead* m);
 void                hc_map_calloc      (MapHead* m, size_t size);
-void*               hc_map_reserve_or_get(MapHead* head, void** data, size_t typesize, MapKeySlice key);
+
+long int            hc_map_get_or_reserve_generic(MapHead *head, MapKeySlice key);
+long int            hc_map_get_generic(MapHead *head, MapKeySlice key);
 
 unsigned long djb2(const char* str, size_t size, char shift) {
     unsigned long h = 5381;
@@ -295,43 +292,22 @@ long int hc_map_query(MapHead m, MapKeySlice string) {
 #undef mks_eq
 }
 
-
-void* hc_map_get_or_reserve_generic(MapHead* head, 
-        void** data, 
-        size_t typesize, 
-        MapKeySlice key,
-        void* dest, size_t size) 
+long int hc_map_get_or_reserve_generic(MapHead* head, MapKeySlice key) 
 {
-    if(size) 
-        assert(typesize == size && "MISMATCH IN TYPE SIZES BETWEEN MAP AND DEST VARIABLE");
-    assert(typesize == head->typesize && "MISMATCH IN MAP ITEMS TYPE SIZE AND GIVEN ITEM");
     long int i = hc_map_query(*head, key);
     // doesn't exist
     if(i == -1) {
         i = hc_map_take(head, key);
         assert(i != -1 && "ATTEMPT TO APPEND TO FULL MAP, PERFORM CHECK FIRST");
     }
-    void* item = (*data) + typesize * i;
-    if(dest)
-        memcpy(dest, item, typesize);
-    return item;
+    return i;
 }
 
-void* hc_map_get_generic(MapHead* head,
-        void** data, size_t typesize, 
-        MapKeySlice key,
-        void* dest, size_t size) 
+long int hc_map_get_generic(MapHead* head, MapKeySlice key) 
 {
-    if(size) 
-        assert(typesize == size && "MISMATCH IN TYPE SIZES BETWEEN MAP AND DEST VARIABLE");
-    // assert(typesize == head->typesize && "MISMATCH IN MAP ITEMS TYPE SIZE AND GIVEN ITEM");
     long int i = hc_map_query(*head, key);
-    // doesn't exist
-    if(i == -1) return NULL;
-    void* item = (*data) + typesize * i;
-    if(dest)
-        memcpy(dest, item, typesize);
-    return item;
+    assert(i != -1 && "MAP DOESN'T HAVE THIS ELEMENT");
+    return i;
 }
 
 void hc_map_grow_generic(MapHead* head, void** data, size_t typesize, size_t new_size) {
@@ -350,9 +326,11 @@ void hc_map_grow_generic(MapHead* head, void** data, size_t typesize, size_t new
         // and move item to new_items
 
         void* item = (*data) + typesize*i;
-        void* old_item = hc_map_get_or_reserve_generic
-            (&new_head, &new_items, typesize, key, NULL, 0);
-        memcpy(old_item, item, typesize);
+        void* new_item = (new_items) + 
+            typesize *
+            hc_map_get_or_reserve_generic(&new_head, key);
+
+        memcpy(new_item, item, typesize);
     }
     
     // set new head

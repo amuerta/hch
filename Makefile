@@ -1,6 +1,6 @@
-run: link_tree
+run: map
 
-run-all: mem arr list_and_arena sb map pool args arena string
+run-all: mem arr link_tree list_and_arena sb map pool args arena string
 
 build-header:
 	cat ./src/*.h > ./packaged/hc.h

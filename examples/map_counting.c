@@ -56,10 +56,7 @@ void count_words_linear(Words* all, Words* found) {
     }
 }
 
-
-
 void resize_words_map_if_needed(CountMap* m) {
-
     if (hc_map_load(m->map_head) > 0.75) {
         assert(!"TODO");
     }
@@ -75,7 +72,7 @@ void count_words_map(Words all, CountMap* m) {
         resize_words_map_if_needed(m);
     
         MapKeySlice key = hc_map_slice(v.data, v.count);
-        int* n = hc_map_ref_or_reserve(m, key);
+        int* n = &(hc_map_get_or_reserve(m, key));
         (*n)++;
 
         nob_temp_reset();
