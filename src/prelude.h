@@ -21,6 +21,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+
+/*
+ *  COMMON TYPE DEFINITIONS
+ */ 
 typedef int8_t              i8;
 typedef int16_t             i16;
 typedef int32_t             i32;
@@ -42,8 +46,8 @@ typedef size_t              usize;
 typedef float               f32;
 typedef double              f64;
                               
-typedef const char*         istr;
-typedef char*               mstr;
+typedef const char*         Cstr;
+typedef char*                str;
 
 typedef size_t              index_t;
 typedef intmax_t            sindex_t;
@@ -54,6 +58,28 @@ typedef uint64_t            bitmask64;
 typedef int64_t             stime;
 typedef uint64_t            utime;
 
+/*
+ * Casts
+ */ 
+
+#ifndef HC_NO_TYPE_CASTERS
+#define     Bool(v)    ((bool)(v))
+#define     Char(v)    ((char)(v))
+#define     Short(v)   ((short)(v))
+#define     Int(v)     ((int)(v))
+#define     Long(v)    ((long)(v))
+#define     Float(v)   ((float)(v))
+#define     Double(v)  ((double)(v))
+
+#define     UChar(v)    ((unsigned char)(v))
+#define     UShort(v)   ((unsigned short)(v))
+#define     UInt(v)     ((unsigned int)(v))
+#define     ULong(v)    ((unsigned long)(v))
+
+#define     Void(v)     ((void)(v))
+#define     Pointer(v)  ((void*)(v))
+#define     DPointer(v) ((void**)(v))
+#endif
 
 //
 // MACROS
@@ -75,7 +101,7 @@ typedef uint64_t            utime;
 
 #ifdef HCH_STRIP_MACRO_PREFIX
 # define arrlen(a)       hc_arrlen(a) 
-# define cast(v, T)      hc_cast(v, T)     
+# define cast(T,v)       hc_cast(T, v)     
 # define transmute(v, T) hc_transmute(v, T)
 # define unused(v)       hc_unused(v)      
 # define BREAKPOINT()    hc_BREAKPOINT()   

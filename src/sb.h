@@ -2,6 +2,10 @@
    String Builder (Nob style)
 */
 
+/*
+   TODO: mark variadics as C99 exclusive feature.
+*/
+
 #include <stdlib.h>  
 #include <stdio.h>   
 #include <string.h>  
@@ -23,6 +27,12 @@ typedef struct {
 #define sb_arrlit(...)          ((const char*[]) {__VA_ARGS__})
 #define sb_arrlen(arr)          (sizeof(arr) / sizeof((arr)[0]))
 #define sb_arrlit_len(...)      (sb_arrlen((__VA_ARGS__)))
+
+#define sb_append(sb, ...) \
+    sb__append(\
+            sb,\
+            sb_arrlit(__VA_ARGS__),\
+            sb_arrlen(sb_arrlit(__VA_ARGS__)))\
 
 #define sb_min(a,b) ((a) > (b))? (b) : (a)
 #define sb_max(a,b) ((a) < (b))? (b) : (a)
@@ -99,7 +109,7 @@ void sb_reverse(StringBuilder* s) {
 	//	   |
 	//	   +-> (end) - i
 
-	for(int i = 0; i < s->count; i++) {
+	for(size_t i = 0; i < s->count; i++) {
 		size_t reverse = (s->count-1) - i;
 		s->items[i] = ptr_cpy[reverse];
 	}
@@ -126,10 +136,5 @@ void sb_clear(StringBuilder* sb) {
     sb->count = 0;
 }
 
-#define sb_append(sb, ...) \
-    sb__append(\
-            sb,\
-            sb_arrlit(__VA_ARGS__),\
-            sb_arrlen(sb_arrlit(__VA_ARGS__)))\
 
 #endif//__HCH_SB_H
