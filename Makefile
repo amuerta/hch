@@ -1,9 +1,16 @@
-run: pool
+run: tracker
 
-run-all: mem arr link_tree list_and_arena sb map pool args arena string
+run-all: mem tracker arr link_tree list_and_arena sb map pool args arena string
+
+loc: 
+	wc -lc ./src/*.h
 
 build-header:
 	cat ./src/*.h > ./packaged/hc.h
+
+tracker:
+	cc -o ./examples/exec/memtracker ./examples/memtracker.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./examples/exec/memtracker
 
 link_tree:
 	cc -o ./examples/exec/tree ./examples/tree.c -ggdb -pg -Wextra -Wall -fsanitize=address
