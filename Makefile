@@ -1,4 +1,4 @@
-run: tracker
+run: args
 
 run-all: mem tracker arr link_tree list_and_arena sb map pool args arena string
 
@@ -7,6 +7,10 @@ loc:
 
 build-header:
 	cat ./src/*.h > ./packaged/hc.h
+
+tokenize:
+	cc -o ./examples/exec/tokenize ./examples/tokenize.c -ggdb -pg -Wextra -Wall -fsanitize=address
+	./examples/exec/tokenize
 
 tracker:
 	cc -o ./examples/exec/memtracker ./examples/memtracker.c -ggdb -pg -Wextra -Wall -fsanitize=address

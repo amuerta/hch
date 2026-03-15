@@ -1,6 +1,6 @@
 
 #define INCLUDE_ARGS
-#include "../packaged/hc.h"
+#include "../src/args.h"
 
 int main(int argc, char** argv) {
     ArgsSlice args = {argv, argc};
@@ -9,6 +9,12 @@ int main(int argc, char** argv) {
     if(arg_flag(args, "greet")) {
         printf("[Response] Hello! :)\n");
     }
+
+    bool n = 0;
+    if(arg_bool(args, "n", &n)) {
+        printf("[N] %s", n ? "true" : "false");
+    }
+    if(*args_error) printf("\nerror: %s", args_error);
 
     if(arg_list(args, "list", &params)) {
         printf("list item count: %i\n", params.count);
