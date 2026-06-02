@@ -1,6 +1,6 @@
-run: args
+run: pool2
 
-run-all: mem tracker arr link_tree list_and_arena sb map pool args arena string
+run-all: mem tracker arr link_tree list_and_arena sb map map_counting pool args arena string tokenize 
 
 loc: 
 	wc -lc ./src/*.h
@@ -51,6 +51,10 @@ sb:
 arena:
 	cc -o ./examples/exec/arena ./examples/arena.c -ggdb -pg -Wextra -Wall -fsanitize=address
 	./examples/exec/arena
+
+pool2:
+	cc -o ./examples/exec/pool2 ./examples/pool2.c -ggdb -pg -Wextra -Wall
+	./examples/exec/pool2
 
 pool:
 	cc -o ./examples/exec/pool ./examples/pool.c -ggdb -pg -Wextra -Wall

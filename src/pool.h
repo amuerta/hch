@@ -58,13 +58,13 @@ enum {
 #define hc_pool_get(P, i)           ((P).items[hc_pool_assert_index(i)].item)
 #define hc_pool_measure(T, n)       hc_pool_measure_ex(sizeof((T).items[0]), n)
 
-#define hc_pool_reserve(P)\
-    hc_pool_reserve_ex(P,\
+#define hc_pool_reserve_item(P)\
+    hc_pool_reserve_item_ex(P,\
             hc_pool_slot_size(*(P)),\
             hc_pool_type_size(*(P)))
 
-#define hc_pool_release(P, I)\
-    hc_pool_release_ex(P,\
+#define hc_pool_release_item(P, I)\
+    hc_pool_release_item_ex(P,\
             hc_pool_slot_size(*(P)),\
             hc_pool_type_size(*(P)),\
             I)
@@ -120,9 +120,9 @@ void*           hc_pool_resize_buffer_ex(void* p, size_t slotsize, size_t typesi
 void*           hc_pool_grow_buffer_ex(void* p, size_t slotsize, size_t typesize, void* new_buffer, size_t new_buffer_size);
 inline void     hc_pool_heap_free(void* p);
 
-hc_pool_index   hc_pool_reserve_ex(void* pool, size_t slotsize, size_t typesize);
+hc_pool_index   hc_pool_reserve_item_ex(void* pool, size_t slotsize, size_t typesize);
 hc_pool_index   hc_pool_insert_ex(void* pool, size_t slotsize, size_t typesize, void* item, size_t size);
-void            hc_pool_release_ex(void* pool, size_t slotsize, size_t typesize, hc_pool_index i);
+void            hc_pool_release_item_ex(void* pool, size_t slotsize, size_t typesize, hc_pool_index i);
 
 #ifndef POOL_HEADER_ONLY
 
@@ -244,7 +244,7 @@ bool hc_pool_need_resize(void* pool) {
     return p->count >= p->capacity;
 }
 
-hc_pool_index hc_pool_reserve_ex(void* pool, size_t slotsize, size_t typesize) {
+hc_pool_index hc_pool_reserve_item_ex(void* pool, size_t slotsize, size_t typesize) {
     hc_PoolBase *p = pool;
     assert(p->items && p->free_list && p->capacity && typesize);
     hc_pool_index index = (size_t)(-1);
@@ -254,7 +254,7 @@ hc_pool_index hc_pool_reserve_ex(void* pool, size_t slotsize, size_t typesize) {
     } else {
         index = p->count;
     }
-    assert(index != HC_POOL_INVALID_INDEX   && "Failed to reserve entity");
+    assert(index != HC_POOL_INVALID_INDEX   && "Failed to reserve_item entity");
     assert(p->count < p->capacity           && "Attempt to buffer overflow");
 
     hc_PoolSlotBase* item = p->items + slotsize*index;
@@ -267,7 +267,7 @@ hc_pool_index hc_pool_reserve_ex(void* pool, size_t slotsize, size_t typesize) {
     return index;
 }
 
-void hc_pool_release_ex(void* pool, size_t slotsize, size_t typesize, hc_pool_index i) {
+void hc_pool_release_item_ex(void* pool, size_t slotsize, size_t typesize, hc_pool_index i) {
     hc_PoolBase *p = pool;
     assert(p->items && p->free_list && p->capacity && typesize);
     if (p->count==0)
@@ -289,7 +289,7 @@ void hc_pool_release_ex(void* pool, size_t slotsize, size_t typesize, hc_pool_in
 hc_pool_index hc_pool_insert_ex(void* pool, size_t slotsize, size_t typesize, void* item, size_t size) {
     hc_PoolBase *p = pool;
     assert(typesize == size);
-    hc_pool_index i = hc_pool_reserve_ex(pool, slotsize, typesize);
+    hc_pool_index i = hc_pool_reserve_item_ex(pool, slotsize, typesize);
     if(hc_pool_is_index_ok(i)) {
         void* slot      = p->items + slotsize*i;
         size_t offset   = (size_t)(slotsize-typesize);
@@ -301,8 +301,8 @@ hc_pool_index hc_pool_insert_ex(void* pool, size_t slotsize, size_t typesize, vo
 
 
 #ifdef   HC_POOL_STRIP_PREFIX
-#define     pool_reserve        hc_pool_reserve
-#define     pool_release        hc_pool_release
+#define     pool_reserve_item        hc_pool_reserve_item
+#define     pool_release_item        hc_pool_release_item
 #define     pool_insert         hc_pool_insert
 #define     pool_from_heap      hc_pool_from_heap
 #define     pool_from_buffer    hc_pool_from_buffer
@@ -329,9 +329,9 @@ hc_pool_index hc_pool_insert_ex(void* pool, size_t slotsize, size_t typesize, vo
 #define     pool_grow_buffer_ex       hc_pool_grow_buffer_ex
 #define     pool_heap_free            hc_pool_heap_free
 
-#define     pool_reserve_ex           hc_pool_reserve_ex
+#define     pool_reserve_item_ex           hc_pool_reserve_item_ex
 #define     pool_insert_ex            hc_pool_insert_ex
-#define     pool_release_ex           hc_pool_release_ex
+#define     pool_release_item_ex           hc_pool_release_item_ex
 
 #define     pool_foreach              hc_pool_foreach
 
