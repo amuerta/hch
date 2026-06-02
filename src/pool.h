@@ -21,7 +21,7 @@
 #include <assert.h>
 
 #define hc_Pool(T) struct {                                 \
-    struct test     { int infomask; T item;} *items;        \
+    struct          { int infomask; T item;} *items;        \
     hc_pool_index   *free_list;                             \
     size_t          count, capacity, max_count, free_count; \
     bool            allocated_on_heap;                      \

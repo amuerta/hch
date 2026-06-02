@@ -38,7 +38,6 @@ size_t lsh_local_index(void* leash, size_t index) {
     const size_t e = ceil(log2(index + 1));
     const size_t size  = 1<<e>>(!!index); // I love C
     const size_t local_index = index-size+!index;
-
     assert(index < l->count);
     return local_index;
 }

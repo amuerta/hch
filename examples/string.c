@@ -1,6 +1,8 @@
 #include "../src/string.h"
 #include "../src/sb.h"
 
+typedef hc_String String;
+
 int main(void) {
     
     String s1,s2;
@@ -21,7 +23,7 @@ int main(void) {
 
     int pos = str_has_pattern(s1, str_make("pattern"));
     const char* cstr = str_temp_cstr(
-        str_substr(s1, pos, str_make("pattern").len)
+        str_substr(s1, pos, str_make("pattern").count)
     );
     printf("'%s'\n" , cstr);
 
