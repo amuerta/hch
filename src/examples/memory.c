@@ -23,8 +23,8 @@ int main(void) {
     int* array = page.ptr;
     //get_array_of_xs(n);
 #if 1
-    printf("%s[%i] : [ ", "array" , n);
-    for(int i = 0; i < n; i++) {
+    printf("%s[%lu] : [ ", "array" , n);
+    for(size_t i = 0; i < n; i++) {
         printf("%i ", array[i]);
     }
     printf("]\n");

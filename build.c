@@ -12,6 +12,10 @@ typedef struct {
     bool run;
 } BuildInfo; 
 
+#define arg_flag_record     hc_arg_flag_record
+#define arg_string_record   hc_arg_string_record
+#define argsrecord_print    hc_argsrecord_print
+
 /*NOTE(IMPORTANT): THIS WILL UNCONTROLLABLY LEAK.
  * It is okay beacuse this program is not intended to run continiously.
  * But be aware of that!
@@ -45,8 +49,12 @@ int main(int argc, char** argv) {
     args.count = argc;
     usage.executable_path = argv[0];
 
-    if(arg_flag_record(args, "help", "Prints script usage information.")) 
-        help()
+    if(!nob_file_exists("./build.c")) {
+        nob_log(NOB_ERROR, "USE THE SCRIPT FROM ROOT OF THE REPOSITORY!! (Along side `./build.c`)");
+        goto end;
+    }
+
+    if(arg_flag_record(args, "help", "Prints script usage information.")) help();
 
     if(arg_flag_record(args, "mingw", "USED WITH `build`. Compile as PE executable (Window) using MINGW compiler.")) 
         info.compile_w_mingw = true;
@@ -63,26 +71,27 @@ int main(int argc, char** argv) {
     if(arg_flag_record(args, "cppcompat", "USED WITH `build`. Check compatibility for C++.")) 
         info.cpp_compatibility_test = true;
 
-    if(arg_flag_record(args, "run", "USED WITH `build`. Runs all examples."))
+    if(arg_flag_record(args, "run", "USED WITH `build`, `test`. Runs selected examples."))
         info.run = true;
-    
+
+
+        /*Core commands*/
+    const char* out = NULL;
+    const char* test_subject = NULL;
+    const char* out_dir = "./out";
+    const char* examples = "./src/examples";
+    const char* headers = "./src/headers";
+
     if(arg_flag_record(args, "build", "Builds all examples with minimal compiler flags, unless told otherwise.")) {
         did_something = true;
-        if(!nob_file_exists("./build.c")) {
-            nob_log(NOB_ERROR, "USE THE SCRIPT FROM ROOT OF THE REPOSITOTY!!");
-            goto end;
-        }
 
         // out_dirput dir
-        const char* out_dir = "./out";
         if(!nob_mkdir_if_not_exists(out_dir)) {
             nob_log(NOB_ERROR, "FAILED TO CREATE %s FOR EXAMPLES.", out_dir);
             goto end;
         }
 
         // Get list of examples, create a list of build commands.
-        const char* examples = "./src/examples";
-        const char* headers = "./src/headers";
         assert(nob_read_entire_dir(examples, &files));
         for(unsigned i = 0; i < files.count; i++) {
             pathb.count = 0;
@@ -105,7 +114,7 @@ int main(int argc, char** argv) {
                     // output to
                     Nob_String_Builder out_pathb = {0};
                     nob_sb_appendf(&out_pathb, "%s/%s.example", out_dir, file);
-                    const char* out  = nob_temp_sv_to_cstr(nob_sb_to_sv(out_pathb));
+                    out  = nob_temp_sv_to_cstr(nob_sb_to_sv(out_pathb));
                     nob_cmd_append(&cmd, "-o", out);
  
                     if(info.run) {
@@ -116,8 +125,7 @@ int main(int argc, char** argv) {
                     nob_cmd_append(&cmd, from);
 
                     // Headers from examples are in include path. --include-directory=<PATH>
-                    nob_sb_appendf(&argb, "--include-directory=%s", headers);
-                    nob_cmd_append(&cmd, nob_temp_sv_to_cstr(nob_sb_to_sv(argb)));
+                    nob_cmd_append(&cmd, nob_temp_sprintf("--include-directory=%s", headers));
 
                     // Link math.
                     nob_cmd_append(&cmd, "-lm");
@@ -151,10 +159,48 @@ int main(int argc, char** argv) {
         }
     }
 
-
-    const char* test_subject = 0;
-    if(arg_string_record(&args, &test_subject, "test", "Builds and runs specific example.")) {
+    else if(arg_string_record(&args, &test_subject, "test", "Builds and runs specific example.")) {
         did_something = true;
+        pathb.count = 0; nob_sb_appendf(&pathb, "./src/examples/%s.c", test_subject);
+        const char* test_subject_path  = nob_temp_sv_to_cstr(nob_sb_to_sv(pathb));
+        if(!nob_file_exists(test_subject_path)) {
+            nob_log(NOB_ERROR, "subject '%s' wasn't found. (Full path: %s)", 
+                    test_subject, test_subject_path);
+            goto end;
+        }
+        nob_log(NOB_INFO, "Trying to build example '%s'.", test_subject_path);
+
+
+        cmd.count = 0;
+
+        nob_cmd_append(&cmd, "cc");
+
+        Nob_String_Builder out_pathb = {0};
+        nob_sb_appendf(&out_pathb, "%s/%s.c.example", out_dir, test_subject);
+        out  = nob_temp_sv_to_cstr(nob_sb_to_sv(out_pathb));
+        nob_cmd_append(&cmd, "-o", out);
+
+        nob_cmd_append(&cmd, test_subject_path);
+        
+        nob_cmd_append(&cmd, nob_temp_sprintf("--include-directory=%s", headers));
+        /*Compile with every percaution.*/
+        nob_cmd_append(&cmd, "-Wall", "-Wextra", 
+                "-ggdb", "-fsanitize=address",
+                "-lm"
+        );
+        if(!nob_cmd_run_sync(cmd)) {
+            nob_log(NOB_ERROR, "Building %s failed! Terminating!", test_subject_path);
+            goto end;
+        };
+
+
+        cmd.count = 0;
+        nob_cmd_append(&cmd, nob_temp_sprintf("./out/%s.c.example", test_subject));
+        if(!nob_cmd_run_sync(cmd)) {
+            nob_log(NOB_ERROR, "Exited abnormally in %s ! Terminating!", test_subject_path);
+            goto end;
+        };
+
     }
 
 

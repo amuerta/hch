@@ -230,7 +230,7 @@ int hc_string_seek_pattern(hc_String src, hc_String pat) {
 				return true;
 		}
 	}
-    else
+    else {
         for(uint src_i = 0; src_i <= diff; src_i++) {
             bool equal = true;
             for(uint c = 0; c < pat.count; c++)
@@ -238,6 +238,7 @@ int hc_string_seek_pattern(hc_String src, hc_String pat) {
             if (equal)
                 return src_i;
         }
+    }
 	return STR_NOPATTERN;
 }
 

@@ -12,7 +12,7 @@ int main(void) {
     Array(int) xs = {0};
     int i = 0;
 
-    for(i = 0; i < 10; i++) 
+    for(i = 0; i < 100; i++) 
         hc_array_alloc_append(a_malloc, &xs, &i);
     for(i = 0; i < Int(xs.count); i++) 
         printf("%i ", xs.items[i]);

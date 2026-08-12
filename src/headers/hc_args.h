@@ -43,8 +43,8 @@ typedef struct {
     ArgRecordSlice description;
 } ArgRecord;
 
-#define arg_min(a,b) (((a) < (b)) ? (a) : (b))
-#define arg_max(a,b) (((a) > (b)) ? (a) : (b))
+#define hc_arg_min(a,b) (((a) < (b)) ? (a) : (b))
+#define hc_arg_max(a,b) (((a) > (b)) ? (a) : (b))
 
 typedef struct {
     unsigned        flag_padding;
@@ -72,29 +72,29 @@ typedef struct {
     char            errors[ARGS_ERROR_BUFFER_SIZE];
 } Args;
 
-#define arg_flag(args, flag)\
-    arg_flag_record(args, flag, "")
+#define hc_arg_flag(args, flag)\
+    hc_arg_flag_record(args, flag, "")
 
-#define arg_int(args, v, flag) \
-    arg_int_record(args, v,     flag,  "")
+#define hc_arg_int(args, v, flag) \
+    hc_arg_int_record(args, v,     flag,  "")
 
-#define arg_float(args,v, flag) \
-    arg_float_record(args, v,   flag,  "")
+#define hc_arg_float(args,v, flag) \
+    hc_arg_float_record(args, v,   flag,  "")
 
-#define arg_long(args,v, flag) \
-    arg_long_record(args, v,    flag,  "")
+#define hc_arg_long(args,v, flag) \
+    hc_arg_long_record(args, v,    flag,  "")
 
-#define arg_bool(args,v, flag) \
-    arg_bool_record(args, v,    flag,  "")
+#define hc_arg_bool(args,v, flag) \
+    hc_arg_bool_record(args, v,    flag,  "")
 
-#define arg_string(args,v, flag) \
-    arg_string_record(args, v,  flag,  "")
+#define hc_arg_string(args,v, flag) \
+    hc_arg_string_record(args, v,  flag,  "")
 
-#define arg_list(args, out, flag)\
-    arg_list_record(args, out, flag, "Any", "", out)
+#define hc_arg_list(args, out, flag)\
+    hc_arg_list_record(args, out, flag, "Any", "", out)
 
 
-void* argsrecord_alloc(ArgsRecord* record, size_t size) {
+void* hc_argsrecord_alloc(ArgsRecord* record, size_t size) {
     void* ptr = record->storage.buffer + record->storage.count;
     if(record->storage.count + size > sizeof(record->storage.buffer))
         return NULL;
@@ -102,7 +102,7 @@ void* argsrecord_alloc(ArgsRecord* record, size_t size) {
     return ptr;
 }
 
-ArgRecordSlice argsrecord_put_slice(ArgsRecord* record, const char* string) {
+ArgRecordSlice hc_argsrecord_put_slice(ArgsRecord* record, const char* string) {
     unsigned length = 0;
     char* storage_pointer = NULL;
     unsigned relative_pointer = 0;
@@ -111,7 +111,7 @@ ArgRecordSlice argsrecord_put_slice(ArgsRecord* record, const char* string) {
     if(!strlen(string)) return slice;
 
     length = strlen(string);
-    storage_pointer = argsrecord_alloc(record, length);
+    storage_pointer = hc_argsrecord_alloc(record, length);
     relative_pointer = storage_pointer - record->storage.buffer;
     memcpy(storage_pointer, string, length);
 
@@ -120,7 +120,7 @@ ArgRecordSlice argsrecord_put_slice(ArgsRecord* record, const char* string) {
      return slice;
 }
 
-bool argsrecord_append_flag(ArgsRecord *record, 
+bool hc_argsrecord_append_flag(ArgsRecord *record, 
         const char* flag, 
         const char* type,
         const char* description,
@@ -140,20 +140,20 @@ bool argsrecord_append_flag(ArgsRecord *record,
     }
 
     ArgRecord new_flag_record = {0};
-    record->biggest_flag_length = arg_max(record->biggest_flag_length, strlen(flag));
-    record->biggest_type_length = arg_max(record->biggest_type_length, strlen(type));
+    record->biggest_flag_length = hc_arg_max(record->biggest_flag_length, strlen(flag));
+    record->biggest_type_length = hc_arg_max(record->biggest_type_length, strlen(type));
     /*place into the memory a flag*/
 
 
-    new_flag_record.flag = argsrecord_put_slice(record, flag);
-    new_flag_record.type = argsrecord_put_slice(record, type);
+    new_flag_record.flag = hc_argsrecord_put_slice(record, flag);
+    new_flag_record.type = hc_argsrecord_put_slice(record, type);
 
     snprintf(work_buffer, sizeof(work_buffer)-1, 
         "(%s) : %s. %s",
         type, description, additions
     );
 
-    new_flag_record.description = argsrecord_put_slice(record, description);
+    new_flag_record.description = hc_argsrecord_put_slice(record, description);
 
     /*append it to record*/
     record->flags.items[record->flags.count++] = new_flag_record;
@@ -161,7 +161,7 @@ bool argsrecord_append_flag(ArgsRecord *record,
     return true;
 }
 
-void argsrecord_print(ArgsRecord record) {
+void hc_argsrecord_print(ArgsRecord record) {
     unsigned i = 0;
     const char* buffer = record.storage.buffer;
     printf("%*sUSAGE: %s [<FLAGS>]\n"
@@ -199,7 +199,7 @@ void argsrecord_print(ArgsRecord record) {
     }
 }
 
-const char* arg_str_is_flag(const char* str) {
+const char* hc_arg_str_is_flag(const char* str) {
     const char* flag = str;
     bool valid_flag = flag && strlen(flag) >= 2;
     if (!valid_flag)  return NULL;
@@ -209,16 +209,16 @@ const char* arg_str_is_flag(const char* str) {
 }
 
 
-/* TODO: make `arg_flags` function that accept's multiple arguments 
+/* TODO: make `hc_arg_flags` function that accept's multiple arguments 
  * and bundles them under the same description and type. IN SHORT - Aliases.*/
-int arg_flag_record(Args args, const char* flag, const char* description) {
+int hc_arg_flag_record(Args args, const char* flag, const char* description) {
     assert(flag);
 
     if(description)
-        argsrecord_append_flag(args.record, flag, "none", description, "");
+        hc_argsrecord_append_flag(args.record, flag, "none", description, "");
     for(int i = 0; i < args.count; i++) {
         const char* s = args.items[i];
-        if (( s = arg_str_is_flag(s))) 
+        if (( s = hc_arg_str_is_flag(s))) 
             if (strcmp(s, flag)==0 && !args.falltrough) {
                 return i;
             }
@@ -226,19 +226,19 @@ int arg_flag_record(Args args, const char* flag, const char* description) {
     return 0;
 }
 
-int arg_flag_with_value(Args args, 
+int hc_arg_flag_with_value(Args args, 
         const char* flag, 
         const char* type, 
         const char* description, 
         const char** out) 
 {
 
-    argsrecord_append_flag(args.record, flag, type, description, "");
+    hc_argsrecord_append_flag(args.record, flag, type, description, "");
     int i = 0;
     assert(flag);
     for(i = 0; i < args.count; i++) {
         const char* s = args.items[i];
-        if (( s = arg_str_is_flag(s))) {
+        if (( s = hc_arg_str_is_flag(s))) {
             const char* save_point = s;
             while(*s && (*s) != '=') s++;
             size_t diff = s - save_point;
@@ -251,7 +251,7 @@ int arg_flag_with_value(Args args,
     return 0;
 }
 
-int arg_list_record(Args args, Args* out,
+int hc_arg_list_record(Args args, Args* out,
         const char* flag, const char* type, const char* description) 
 {
     char modify_type_buffer[128] = {0};
@@ -259,20 +259,20 @@ int arg_list_record(Args args, Args* out,
             "%s[]", 
             type);
     if(flag && type && description)
-        argsrecord_append_flag(args.record, flag, modify_type_buffer, description, "");
+        hc_argsrecord_append_flag(args.record, flag, modify_type_buffer, description, "");
     int b = 0;
-    if((b = arg_flag_record(args, flag, NULL))) {
+    if((b = hc_arg_flag_record(args, flag, NULL))) {
         if (b+1 < args.count)   out->items = args.items + b+1;
         else                    out->items = 0;
         for(int i = b+1; i < args.count; i++) {
-            if(arg_str_is_flag(args.items[i])) break;
+            if(hc_arg_str_is_flag(args.items[i])) break;
             out->count++;
         }
     }
     return b;
 }
 
-int arg_single_value(Args *args, 
+int hc_arg_single_value(Args *args, 
         const char* flag, 
         const char* type, 
         const char* description, 
@@ -280,7 +280,7 @@ int arg_single_value(Args *args,
     Args values = {0};
     int location = 0;
     assert(out);
-    if((location = arg_list_record(*args, &values, flag, NULL, NULL))) {
+    if((location = hc_arg_list_record(*args, &values, flag, NULL, NULL))) {
         if(values.count > 1) {
             char* new_error = args->errors + strlen(args->errors);
             unsigned available_size =  ((sizeof(args->errors)-1) - strlen(args->errors));
@@ -295,7 +295,7 @@ int arg_single_value(Args *args,
     }
 
     const char* value = 0;
-    location = arg_flag_with_value(*args, flag, type, description, &value);
+    location = hc_arg_flag_with_value(*args, flag, type, description, &value);
     if(!value)          return false;
     if(!strlen(value))  return false;
     
@@ -303,32 +303,32 @@ int arg_single_value(Args *args,
     return location;
 }
 
-int arg_int_record(Args *args, int* v,
+int hc_arg_int_record(Args *args, int* v,
         const char* flag, const char* description)
 {
     const char* value = 0; int n = 0;
-    if((n = arg_single_value(args, flag, "int", description, &value))) *v = atoi(value); 
+    if((n = hc_arg_single_value(args, flag, "int", description, &value))) *v = atoi(value); 
     return n;
 }
 
-int arg_float_record(Args *args, float* v,
+int hc_arg_float_record(Args *args, float* v,
         const char* flag, const char* description) {
     const char* value = 0; int n = 0;
-    if((n = arg_single_value(args, flag, "float", description, &value))) *v = atof(value); 
+    if((n = hc_arg_single_value(args, flag, "float", description, &value))) *v = atof(value); 
     return n;
 }
 
-int arg_long_record(Args *args, long* v,
+int hc_arg_long_record(Args *args, long* v,
         const char* flag,  const char* description) {
     const char* value = 0; int n = 0;
-    if((n = arg_single_value(args, flag, "long", description,&value))) *v = atol(value); 
+    if((n = hc_arg_single_value(args, flag, "long", description,&value))) *v = atol(value); 
     return n;
 }
 
-int arg_bool_record(Args *args, bool* v,
+int hc_arg_bool_record(Args *args, bool* v,
         const char* flag, const char* description) {
     const char* value = 0; int n = 0;
-    if((n = arg_single_value(args, flag, "bool", description,&value))) {
+    if((n = hc_arg_single_value(args, flag, "bool", description,&value))) {
         if(!(!strcmp(value, "true") || !strcmp(value, "false"))) {
             char* new_error = args->errors + strlen(args->errors);
             unsigned available_size =  ((sizeof(args->errors)-1) - strlen(args->errors));
@@ -343,11 +343,11 @@ int arg_bool_record(Args *args, bool* v,
     return n;
 }
 
-int arg_string_record(Args* args, const char** out,
+int hc_arg_string_record(Args* args, const char** out,
         const char* flag, 
         const char* description) 
 {
-    return arg_single_value(args, flag, "string", description, out);
+    return hc_arg_single_value(args, flag, "string", description, out);
 }
 
 #endif/*__HCH_ARGS_H*/

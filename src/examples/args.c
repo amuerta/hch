@@ -16,27 +16,27 @@ int main(int argc, char** argv) {
     Args params = {0};
     bool help = false;
 
-    if(arg_flag_record(args, "help", "Prints usage.")) {
+    if(hc_arg_flag_record(args, "help", "Prints usage.")) {
         printf("Requested help.\n");
         args.falltrough = true;
         help = true;
     }
 
-    if(arg_flag_record(args, "greet", "Prints greet message")) {
+    if(hc_arg_flag_record(args, "greet", "Prints greet message")) {
         printf("[Response] Hello! :)\n");
     }
 
     bool n = 0;
     bool n2 = 0;
-    if(arg_bool_record(&args, &n, "n", "prints true or false")) {
+    if(hc_arg_bool_record(&args, &n, "n", "prints true or false")) {
         printf("[N] %s\n", n ? "true" : "false");
     }
 
-    if(arg_bool_record(&args, &n2, "n2", "copy of n")) {
+    if(hc_arg_bool_record(&args, &n2, "n2", "copy of n")) {
         printf("[N2] %s\n", n2 ? "true" : "false");
     }
 
-    if(arg_list_record(args, &params, "list", "int", "list of numbers")) {
+    if(hc_arg_list_record(args, &params, "list", "int", "list of numbers")) {
         printf("list item count: %i\n", params.count);
         printf("list items: [ ");
         for(int i = 0; i < params.count; i++)
@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
 
     if(*args.errors) {
         printf("errors: \n%s\n", args.errors);
-        argsrecord_print(usage);
-    } else if(help) argsrecord_print(usage);
+        hc_argsrecord_print(usage);
+    } else if(help) hc_argsrecord_print(usage);
     
 }

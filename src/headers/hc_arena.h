@@ -21,7 +21,7 @@
 #define ARENA_DEFAULT_BLOCK_SIZE    (1024*1024*4)
 #define ARENA_HEADER_SIZE           sizeof(ArenaBlock)
 
-typedef unsigned char arena_bitmask8;
+typedef unsigned char hc_arena_bitmask8;
 enum {
     ARENA_RESET_SIZE   = (1 << 0),
     ARENA_RESET_MEMORY = (1 << 1),
@@ -42,22 +42,22 @@ typedef struct {
 } Arena;
 
 // use these
-void*       arena_alloc     (Arena*, size_t);
-void*       arena_realloc   (Arena* a, void* ptr, size_t new_size);
-void        arena_memcpy    (Arena* a, void* data, size_t size);
-void        arena_reset     (Arena*, int opt);
-#define     arena_put(A, I) arena_memcpy(A, &I, sizeof(I))
-#define     arena_rewind(A) arena_reset(A, ARENA_RESET_SIZE)
-#define     arena_clear(A)  arena_reset(A, ARENA_RESET_SIZE | ARENA_RESET_MEMORY)
-#define     arena_free(A)   arena_reset(A, ARENA_RESET_SIZE | ARENA_RESET_MEMORY | ARENA_FREE_NODES)
+void*       hc_arena_alloc     (Arena*, size_t);
+void*       hc_arena_realloc   (Arena* a, void* ptr, size_t new_size);
+void        hc_arena_memcpy    (Arena* a, void* data, size_t size);
+void        hc_arena_reset     (Arena*, int opt);
+#define     hc_arena_put(A, I) hc_arena_memcpy(A, &I, sizeof(I))
+#define     hc_arena_rewind(A) hc_arena_reset(A, ARENA_RESET_SIZE)
+#define     hc_arena_clear(A)  hc_arena_reset(A, ARENA_RESET_SIZE | ARENA_RESET_MEMORY)
+#define     hc_arena_free(A)   hc_arena_reset(A, ARENA_RESET_SIZE | ARENA_RESET_MEMORY | ARENA_FREE_NODES)
 
 // change this one for your specific need/enviorment/taste
-ArenaBlock* arena_make_block(size_t);
-void        arena_free_block(ArenaBlock*);
+ArenaBlock* hc_arena_make_block(size_t);
+void        hc_arena_free_block(ArenaBlock*);
 
 /*TODO: Create support for cross-platform mmap in memory.h and sbrk in linux*/
 #ifndef ARENA_CUSTOM_NODE_ALLOCATOR
-ArenaBlock* arena_make_block(size_t block_size) {
+ArenaBlock* hc_arena_make_block(size_t block_size) {
     assert(block_size > ARENA_HEADER_SIZE);
     ArenaBlock* block = malloc(block_size * 1);
     assert(block && "calloc failed");
@@ -66,7 +66,7 @@ ArenaBlock* arena_make_block(size_t block_size) {
     return block;
 }
 
-void arena_free_block(ArenaBlock* block) {
+void hc_arena_free_block(ArenaBlock* block) {
     assert(block); free(block);
 }
 #endif
@@ -76,7 +76,7 @@ void arena_free_block(ArenaBlock* block) {
  * `size + ARENA_HEADER_SIZE` of bytes.
  * 2) If block available allocation space is getting too small to fit
  * `size` - create new node of ARENA_DEFAULT_BLOCK_SIZE or act as in (1). */
-void* arena_alloc(Arena* arena, size_t size) {
+void* hc_arena_alloc(Arena* arena, size_t size) {
     void* ret         = 0;
     ArenaBlock* tail   = arena->memory;
     size_t block_size = 0;
@@ -89,20 +89,20 @@ void* arena_alloc(Arena* arena, size_t size) {
 
 
     if (!arena->memory) {
-        arena->memory = arena_make_block(block_size);
+        arena->memory = hc_arena_make_block(block_size);
         tail = arena->memory;
-        goto arena_alloc_goto;
+        goto hc_arena_alloc_goto;
     }
 
-arena_alloc_goto:
+hc_arena_alloc_goto:
     if (tail->allocated + size <= (tail->block_size - ARENA_HEADER_SIZE)) {
         ret = tail->data + tail->allocated;
         tail->allocated += size;
     } else {
         if(!tail->next)
-            tail->next  = arena_make_block(block_size);
+            tail->next  = hc_arena_make_block(block_size);
         tail            = tail->next;
-        goto arena_alloc_goto;
+        goto hc_arena_alloc_goto;
     }
     return ret;
 }
@@ -114,7 +114,7 @@ arena_alloc_goto:
  * in place of the old one. This function exists for arrays 
  * that need to be able to resize and inherit all properties
  * of arenas, with respect to their lifetime.             */
-void* arena_realloc(Arena* a, void* ptr, size_t new_size) {
+void* hc_arena_realloc(Arena* a, void* ptr, size_t new_size) {
     size_t      old_size, size_min;
     ArenaBlock   *prev, *replace_block = 0;
     for(ArenaBlock* it = a->memory; it; it = it->next) {
@@ -126,11 +126,11 @@ void* arena_realloc(Arena* a, void* ptr, size_t new_size) {
             old_size = it->block_size;
             size_min = (new_size > old_size) ? old_size : new_size;
             // create new block, copy data, swap pointers
-            replace_block = arena_make_block(new_size);
+            replace_block = hc_arena_make_block(new_size);
             memcpy(it, replace_block, size_min);
             if(prev)
                 prev->next = replace_block;
-            arena_free_block(it);
+            hc_arena_free_block(it);
             return replace_block;
         }
         prev = it;
@@ -138,7 +138,7 @@ void* arena_realloc(Arena* a, void* ptr, size_t new_size) {
     assert(!"No blocks that match the pointer are found.");
 }
 
-void arena_reset(Arena* a, int opt) {
+void hc_arena_reset(Arena* a, int opt) {
     a->totally_allocated = 0;
     ArenaBlock* block = a->memory;
     assert(block->block_size);
@@ -152,12 +152,12 @@ void arena_reset(Arena* a, int opt) {
 
         block = block->next;
         if (opt & ARENA_FREE_NODES) 
-            arena_free_block(to_free);
+            hc_arena_free_block(to_free);
     }
 }
 
-void arena_memcpy(Arena* a, void* data, size_t size) {
-    void* cell = arena_alloc(a, size);
+void hc_arena_memcpy(Arena* a, void* data, size_t size) {
+    void* cell = hc_arena_alloc(a, size);
     assert(cell && "Unexprected null, failed to allocate");
     memcpy(cell, data, size);
 }

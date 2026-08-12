@@ -13,10 +13,10 @@ int main(void) {
     hc_Token token;
 
     hc_TokenEntry tokens[] = {
-        tkn_entry("%s"),
+        hc_token_entry("%s"),
     };
-    while(token = string_chop_token_or_string(&src, tokens, 1, "\"","\""), 
-            tkn_is_valid(token)) 
-        printf("\t token: '%s',\t kind: %u\n", tkn_to_cstring(token), token.kind);
+    while(token = hc_string_chop_token_or_string(&src, tokens, 1, "\"","\""), 
+            hc_token_is_valid(token)) 
+        printf("\t token: '%s',\t kind: %u\n", hc_token_to_cstring(token), token.kind);
     
 }

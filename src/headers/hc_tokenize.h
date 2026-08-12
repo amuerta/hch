@@ -42,11 +42,11 @@ EXAMPLE:
             hc_Token token;
 
             hc_TokenEntry tokens[] = {
-                tkn_entry("%s"),
+                hc_token_entry("%s"),
             };
             while(token = str_chop_token_or_string(&src, tokens, 1, "\"","\""), 
-                    tkn_is_valid(token)) 
-                printf("\t token: '%s',\t kind: %u\n", tkn_to_cstring(token), token.kind);
+                    hc_token_is_valid(token)) 
+                printf("\t token: '%s',\t kind: %u\n", hc_token_to_cstring(token), token.kind);
             
         }
     ```
@@ -65,7 +65,7 @@ EXAMPLE:
 #endif
 
 /*Change used string type here*/
-typedef hc_String tkn_String;
+typedef hc_String hc_token_String;
 
 
 /*******************|Includes|*******************/
@@ -74,8 +74,8 @@ typedef hc_String tkn_String;
 #include <assert.h>
 
 /**********|Helper stuff (ingnore it)|***********/
-#define tkn__max(A,B) (((A) > (B)) ? (A) : (B))
-#define tkn__min(A,B) (((A) < (B)) ? (A) : (B))
+#define hc_token__max(A,B) (((A) > (B)) ? (A) : (B))
+#define hc_token__min(A,B) (((A) < (B)) ? (A) : (B))
 
 
 typedef enum {
@@ -90,7 +90,7 @@ typedef enum {
 } hc_TokenKind;
 
 typedef struct {
-    tkn_String      slice;
+    hc_token_String      slice;
     hc_TokenKind   kind;
     union {
         int         integer;
@@ -102,24 +102,24 @@ typedef struct {
 
 typedef struct {
     int         custom_token_id; /*You can avoid string comparisons by assigning id*/
-    tkn_String  match;
+    hc_token_String  match;
 } hc_TokenEntry;
 
-bool     tkn_is_valid(hc_Token t);
+bool hc_token_is_valid(hc_Token t);
 
-bool tkn_match_string(hc_Token t, tkn_String slice);
-bool tkn_match_cstring(hc_Token t, const char *str);
+bool hc_token_match_string(hc_Token t, hc_token_String slice);
+bool hc_token_match_cstring(hc_Token t, const char *str);
 
 /*TODO: swap table and table size, annotated count as token_table_count for clarity!*/
-hc_Token string_chop_token(tkn_String* src, hc_TokenEntry* token_table, size_t count);
-hc_Token string_chop_token_opt(tkn_String* src, hc_TokenEntry* token_table, size_t count, int flags);
+hc_Token hc_string_chop_token(hc_token_String* src, hc_TokenEntry* token_table, size_t count);
+hc_Token hc_string_chop_token_opt(hc_token_String* src, hc_TokenEntry* token_table, size_t count, int flags);
 /*                                                                                     ^^^^^^^^^
  * NOTE: I probably might add flags for emitting tokens when new_line is encountered or giving you
  * tokens of spaces and tabs, but for now i don't really care about that functionality, so these
  * flags literally do nothing. HOWEVER, they will be utilized in the future.
  */
 
-hc_Token string_chop_token_or_string(tkn_String *src, 
+hc_Token hc_string_chop_token_or_string(hc_token_String *src, 
         hc_TokenEntry *table, size_t count, 
         const char* opening, const char* closing);
 
@@ -129,35 +129,35 @@ hc_Token string_chop_token_or_string(tkn_String *src,
 /*                                                                  */
 #ifndef HC_TOKENIZE_HEADER_ONLY
 /*************************|Helper functions|*************************/
-hc_Token string_chop_token(tkn_String* src, hc_TokenEntry* token_table, size_t count) {
-    return string_chop_token_opt(src, token_table, count, 0);
+hc_Token hc_string_chop_token(hc_token_String* src, hc_TokenEntry* token_table, size_t count) {
+    return hc_string_chop_token_opt(src, token_table, count, 0);
 }
 
-bool tkn_is_valid(hc_Token t) {
+bool hc_token_is_valid(hc_Token t) {
     return t.kind != HC_TOKEN_ERROR_TOKENIZING && t.kind != HC_TOKEN_END;
 }
 
-bool tkn__is_space(char c) {
+bool hc_token__is_space(char c) {
     return c == ' ' || c == '\n' || c == '\t';
 }
 
-bool tkn__is_letter(char c) {
+bool hc_token__is_letter(char c) {
     return 0
         || ('a' <= c && c <= 'z') 
         || ('A' <= c && c <= 'Z');
 }
 
-bool tkn__is_digit(char c) {
+bool hc_token__is_digit(char c) {
     return ('0' <= c && c <= '9'); 
 }
 
-hc_TokenEntry tkn_entry(const char* string) {
+hc_TokenEntry hc_token_entry(const char* string) {
     hc_TokenEntry entry = {0};
     entry.match = hc_string_make(string);
     return entry;
 }
 
-hc_TokenEntry tkn_entry_with_id(const char* string, int id) {
+hc_TokenEntry hc_token_entry_with_id(const char* string, int id) {
     hc_TokenEntry entry   = {0};
     entry.match    = hc_string_make(string);
     entry.custom_token_id = id;
@@ -172,11 +172,11 @@ hc_TokenEntry tkn_entry_with_id(const char* string, int id) {
     are applied to `src` string and parsed token string is 
     put into `out->slice`
 
-    other `tkn__parse_*` functions are like this one,
+    other `hc_token__parse_*` functions are like this one,
     but each does parsing of their token kind.
  */
-bool tkn__parse_number(hc_Token* out, tkn_String* src) {
-    tkn_String left = *src;
+bool hc_token__parse_number(hc_Token* out, hc_token_String* src) {
+    hc_token_String left = *src;
     hc_Token result = {0};
     bool parsing     = true;
     bool seen_period = false;
@@ -189,7 +189,7 @@ bool tkn__parse_number(hc_Token* out, tkn_String* src) {
         char c = *(left.items + i);
         if(c == '.') seen_period = true;
         /*not digit and (isnt a period or seen period) */
-        else if(!tkn__is_digit(c) && (c != '.' || seen_period)) 
+        else if(!hc_token__is_digit(c) && (c != '.' || seen_period)) 
             parsing = false, i--;
     }
 
@@ -199,7 +199,7 @@ bool tkn__parse_number(hc_Token* out, tkn_String* src) {
 
     /* If we are here - we have succesfully read a float or int*/
     char temp[128] = {0};/*I doubt youll need numbers bigger than 127 digits...*/
-    memcpy(temp, result.slice.items, tkn__min(i, sizeof(temp)));
+    memcpy(temp, result.slice.items, hc_token__min(i, sizeof(temp)));
 
     result.kind = seen_period ? HC_TOKEN_FLT : HC_TOKEN_INT;
     if(seen_period) 
@@ -213,8 +213,8 @@ bool tkn__parse_number(hc_Token* out, tkn_String* src) {
     return true;
 }
 
-bool tkn__parse_word(hc_Token* out, tkn_String* src) {
-    tkn_String left = *src;
+bool hc_token__parse_word(hc_Token* out, hc_token_String* src) {
+    hc_token_String left = *src;
     hc_Token result = {0};
     size_t i = 0; 
     bool parsing = true;
@@ -225,8 +225,8 @@ bool tkn__parse_word(hc_Token* out, tkn_String* src) {
     for(i = 0; i < left.count && parsing; i++) {
         char c = *(left.items+i);
         bool filter = 0
-            || (tkn__is_letter(c) || c == '_') 
-            || (i && tkn__is_digit(c));
+            || (hc_token__is_letter(c) || c == '_') 
+            || (i && hc_token__is_digit(c));
         if(!filter) /*for anything that is not valid word, stop reading it*/ 
             parsing = false,
             i--; /*rewind from invalid character*/
@@ -243,8 +243,8 @@ bool tkn__parse_word(hc_Token* out, tkn_String* src) {
     return true;
 }
 
-bool tkn__parse_symbol(hc_Token* out, tkn_String* src) {
-    tkn_String left = *src;
+bool hc_token__parse_symbol(hc_Token* out, hc_token_String* src) {
+    hc_token_String left = *src;
     hc_Token result = {0};
 
     if(!left.items || !left.count) return false;
@@ -253,9 +253,9 @@ bool tkn__parse_symbol(hc_Token* out, tkn_String* src) {
     result.slice.count = 1;
 
     bool filter = 0 
-        || tkn__is_space(c)
-        || tkn__is_letter(c) 
-        || tkn__is_digit(c)    
+        || hc_token__is_space(c)
+        || hc_token__is_letter(c) 
+        || hc_token__is_digit(c)    
         || ( c == '_' );
     if(filter) return false;
 
@@ -269,11 +269,11 @@ bool tkn__parse_symbol(hc_Token* out, tkn_String* src) {
 
 
 
-bool tkn__parse_custom(hc_Token* out, tkn_String* src, hc_TokenEntry* items, size_t items_count) {
-    tkn_String left = *src;
+bool hc_token__parse_custom(hc_Token* out, hc_token_String* src, hc_TokenEntry* items, size_t items_count) {
+    hc_token_String left = *src;
     hc_Token result = {0};
     bool found = false;
-    tkn_String match_token = {0};
+    hc_token_String match_token = {0};
 
     if(!left.items || !left.count)  return false;
     if(!items || !items_count)      return false;
@@ -304,37 +304,37 @@ bool tkn__parse_custom(hc_Token* out, tkn_String* src, hc_TokenEntry* items, siz
 
 
 
-hc_Token string_chop_token_opt(tkn_String* src, hc_TokenEntry* token_table, size_t count, int flags) {
+hc_Token hc_string_chop_token_opt(hc_token_String* src, hc_TokenEntry* token_table, size_t count, int flags) {
     hc_Token    end     = {.kind = HC_TOKEN_END},
                 result  = end;
-    tkn_String   cpy     = *src;/*avoid using the original variable whem mutating it*/
+    hc_token_String   cpy     = *src;/*avoid using the original variable whem mutating it*/
     
     (void) flags;
     assert(src->items);
     if(!src->count) return end;
     
     /*skip spaces*/
-    while(tkn__is_space(*(cpy.items))) 
+    while(hc_token__is_space(*(cpy.items))) 
         cpy.items++, cpy.count--;
 
     /*match tokens and parse them as you match them*/
     /*NOTE: src is NOT mutated on failure.*/
-    if(tkn__parse_custom(&result, &cpy,     token_table, count))    
+    if(hc_token__parse_custom(&result, &cpy,     token_table, count))    
         return (*src) = cpy, result;
-    if(tkn__parse_number(&result, &cpy))    return (*src) = cpy, result;
-    if(tkn__parse_word  (&result, &cpy))    return (*src) = cpy, result;
-    if(tkn__parse_symbol(&result, &cpy))    return (*src) = cpy, result;
+    if(hc_token__parse_number(&result, &cpy))    return (*src) = cpy, result;
+    if(hc_token__parse_word  (&result, &cpy))    return (*src) = cpy, result;
+    if(hc_token__parse_symbol(&result, &cpy))    return (*src) = cpy, result;
     return result;
 }
 
-const char* tkn_to_cstring(hc_Token t) {
+const char* hc_token_to_cstring(hc_Token t) {
     static char temp[512];
     memset(temp, 0, sizeof(temp));
     const size_t OF_COURSE_IT_ALSO_COUNTS_NULL_TERMINATOR = 1;
     /*TODO: count precision for floats too?*/
     size_t n = t.slice.count 
         + OF_COURSE_IT_ALSO_COUNTS_NULL_TERMINATOR;
-    n = tkn__min(n, sizeof(temp));
+    n = hc_token__min(n, sizeof(temp));
     switch(t.kind) {
         case HC_TOKEN_INT:      snprintf(temp, n, "%i", t.value.integer);  break;
         case HC_TOKEN_FLT:      snprintf(temp, n, "%f", t.value.floating); break;
@@ -349,7 +349,7 @@ const char* tkn_to_cstring(hc_Token t) {
     return temp;
 }
 
-bool tkn_match_string(hc_Token t, tkn_String slice) {
+bool hc_token_match_string(hc_Token t, hc_token_String slice) {
     assert(slice.items);
     assert(t.kind);
     
@@ -363,12 +363,12 @@ bool tkn_match_string(hc_Token t, tkn_String slice) {
             && !strncmp(t.slice.items, slice.items, slice.count);
 }
 
-bool tkn_match_cstring(hc_Token t, const char *str) {
+bool hc_token_match_cstring(hc_Token t, const char *str) {
     hc_String slice = {0};
     assert(str);
     slice.items = str; 
     slice.count = strlen(str);
-    return tkn_match_string(t, slice);
+    return hc_token_match_string(t, slice);
 }
 
 /* This is pretty string parsing function as 
@@ -377,7 +377,7 @@ bool tkn_match_cstring(hc_Token t, const char *str) {
  * parsing of primitive strings and demostration
  * of how you can implement similiar functionality 
  * yourself once it's needed.                   */
-hc_Token string_chop_token_or_string(tkn_String *src, 
+hc_Token hc_string_chop_token_or_string(hc_token_String *src, 
         hc_TokenEntry *table, size_t count, 
         const char* opening, const char* closing) 
 {
@@ -387,18 +387,18 @@ hc_Token string_chop_token_or_string(tkn_String *src,
     assert(src);
     assert(opening && closing);
     
-    t = string_chop_token(src, table, count);
-    if(!tkn_is_valid(t)) return t;
+    t = hc_string_chop_token(src, table, count);
+    if(!hc_token_is_valid(t)) return t;
 
     assert(t.slice.items);
     parsed_string.slice.items = t.slice.items + strlen(opening);
     parsed_string.kind = HC_TOKEN_STRING;
     
-    if(tkn_match_cstring(t, opening)) {
+    if(hc_token_match_cstring(t, opening)) {
         before = t;
-        while(t = string_chop_token(src, table, count), tkn_is_valid(t)) {
-            if(    !tkn_match_cstring(before, "\\") 
-                &&  tkn_match_cstring(t, closing)) 
+        while(t = hc_string_chop_token(src, table, count), hc_token_is_valid(t)) {
+            if(    !hc_token_match_cstring(before, "\\") 
+                &&  hc_token_match_cstring(t, closing)) 
                 goto end;       
             before = t;
         }
@@ -418,9 +418,9 @@ hc_Token string_chop_token_or_string(tkn_String *src,
 /*
     Versions:
         v1.0 - Made initial library functionality with:
-            tkn_is_valid,
-            tkn_match_string,
-            tkn_match_cstring,
+            hc_token_is_valid,
+            hc_token_match_string,
+            hc_token_match_cstring,
             string_chop_token,
             string_chop_token_opt - functions.
             NO LICENCE PROVIDED, I don't care.

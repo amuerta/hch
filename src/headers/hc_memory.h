@@ -245,8 +245,11 @@ void* allocator_malloc_realloc_callback(void* ctx, void* ptr, size_t old_size, s
     /*unsused*/ 
     (void) (ctx);
     void* new_ptr = malloc(new_size);
-    memcpy(new_ptr, ptr, old_size);
-    if(ptr) free(ptr);
+    memset(new_ptr, 0, new_size);
+    if(ptr) {
+        memcpy(new_ptr, ptr, old_size);
+        free(ptr);
+    }
     assert(new_ptr && "malloc failed.");
     return new_ptr;
 }

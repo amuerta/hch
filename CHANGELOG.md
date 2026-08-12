@@ -9,4 +9,8 @@ Should match the commit history, or at least give you an idea of what changed ha
 
 
 # V1 - Since Wed Aug 12 04:50 PM EEST 2026
-- Reworked project structure. Now all headers are in `./src/headers` and all examples are in `./src/examples`. Switch build system from `make` to `nob.h`. Added `CHANGELOG.md`. Changed `README.md`. More changes that just delete or move files, not important.
+0. Reworked project structure. Now all headers are in `./src/headers` and all examples are in `./src/examples`. Switch build system from `make` to `nob.h`. Added `CHANGELOG.md`. Changed `README.md`. More changes that just delete or move files, not important.
+0. Added comma-operator expression trick to array append API. Added a macro to opt-out of this.
+0. Fixed a bug in `hc_array_resize_generic()` that had USE AFTER FREE. Still need to rewrite this function... Eventually.
+0. Build script now has `--test` command that runs a specific example with all precautions.
+0. Added `hc_` prefix to where it was missing.

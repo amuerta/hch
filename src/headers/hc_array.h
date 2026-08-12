@@ -83,19 +83,35 @@ typedef struct {
 #define hc_array_value_generic(V)\
     hc_generic((V), sizeof((V)[0]))
 
+/*These bundle item you append into a hc_GenericValue(T)*/
+#ifndef HC_ARRAY_GENERIC_VALUE_INSTEAD_OF_COMMA_OPERATOR
+#   define hc_array_append(A, I)               \
+        hc_array_append_generic(                \
+                hc_array_collection_generic(A), \
+                hc_array_value_generic(I))
 
-/*Actual generics you would use.*/
-#define hc_array_append(A, I)               \
-    hc_array_append_generic(                \
-            hc_array_collection_generic(A), \
-            hc_array_value_generic(I))
+#   define hc_array_alloc_append(ALLOC, A, I)  \
+        hc_array_alloc_append_generic(          \
+                (ALLOC),                        \
+                hc_array_collection_generic(A), \
+                hc_array_value_generic(I))
+#else
+/*These only check if collecitable can be appended via
+ * utility functions, if so - item appened via use of 
+ * comma-operator expression. This is a bit more macro heavier
+ * then the other approach, but a bit more reliable.*/
+bool hc_array_if_can_append(hc_GenericCollection);
+bool hc_array_if_can_alloc_append(Allocator, hc_GenericCollection);
+#   define hc_array_append(A, I)\
+    (hc_array_if_can_append(hc_array_collection_generic(A)) ?\
+        (((A)->items)[((A)->count++)] = (I), true)          :\
+        (false))
 
-
-#define hc_array_alloc_append(ALLOC, A, I)  \
-    hc_array_alloc_append_generic(          \
-            (ALLOC),                        \
-            hc_array_collection_generic(A), \
-            hc_array_value_generic(I))
+#   define hc_array_alloc_append(A, I)\
+    (hc_array_if_can_alloc_append(hc_array_collection_generic(A)) ?\
+        (((A)->items)[((A)->count++)] = (I), true)          :\
+        (false))
+#endif
 
 #define hc_array_from_buffer(A, buffer, size)   \
     hc_array_from_buffer_generic(               \
@@ -142,6 +158,8 @@ bool    hc_array_alloc_append_generic(Allocator, hc_GenericArray, hc_GenericValu
 
 #ifndef HC_ARRAY_HEADER_ONLY
 
+
+
 void hc_array_from_buffer_generic(hc_GenericArray arr_generic, void* buffer, size_t size) {
     hc_ArrayBase* da = hc_generic_unwrap(arr_generic, sizeof(*da));
     size_t typesize = arr_generic.collection_items_typesize;
@@ -160,6 +178,19 @@ size_t hc_array_measure(size_t typesize, size_t count) {
 bool hc_array_needs_resize(hc_GenericArray arr_generic) {
     hc_ArrayBase* da = hc_generic_unwrap(arr_generic, sizeof(*da));
     return (da->count >= (da->capacity - 1)) || (da->capacity == 0);
+}
+
+bool hc_array_if_can_append(hc_GenericCollection array) {
+    return !hc_array_needs_resize(array);
+}
+
+bool hc_array_if_can_alloc_append(Allocator allocator, hc_GenericCollection arr_generic) {
+    hc_ArrayBase* array = hc_generic_unwrap(arr_generic, sizeof(*array));
+    
+    if(hc_array_needs_resize(arr_generic)) 
+        hc_array_resize_generic(allocator, arr_generic, 
+                array->capacity * HC_ARRAY_GROW_FACTOR);
+    return true;
 }
 
 /*TODO:
@@ -206,8 +237,7 @@ void hc_array_resize_generic(Allocator allocator, hc_GenericArray arr_generic, s
     assert(new_size_items > 0 && "new_size_cannot be 0.");
     assert(new_items && "allocator_alloc(Allocator, size_t) failed!");
 
-
-    if(old_cap) {
+    if(old_cap && !allocator.realloc) {
         copy_count = (new_cap > old_cap) ? old_cap : new_cap;
         memcpy(new_items, old_items, copy_count * typesize);
     } else copy_count = new_cap;
@@ -215,8 +245,8 @@ void hc_array_resize_generic(Allocator allocator, hc_GenericArray arr_generic, s
     array->capacity = new_cap;
     array->items = new_items;
 
-    /*Free if it's defined.*/
-    if(old_items)
+    /*Free if it's defined and realloc isn't called.*/
+    if(old_items && !allocator.realloc)
         allocator_free(allocator, old_items, old_cap);
 }
 
@@ -249,7 +279,6 @@ bool hc_array_remove_unordered_generic(hc_GenericArray arr_generic, size_t index
             hc_array_byteswap(l,r);
         }
     }
-
 
     array->count--;
     return true;

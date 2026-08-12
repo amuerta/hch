@@ -13,14 +13,14 @@
 
 #include <stdint.h>
 
-typedef uint32_t    Bitmask32;
-typedef uint64_t    Bitmask64;
+typedef uint32_t    hc_Bitmask32;
+typedef uint64_t    hc_Bitmask64;
 
-#   define bitmask_check(N, M)               ((N) & (M))
-#   define bitmask_toggle(N, M)              ((N) ^ (M))
-#   define bitmask_set(N, M)                 ((N) | (M))
-#   define bitmask_clear(N, M)               ((N) & (~(M)))
-#   define bitmask_get_chunk(m, off, size)   __bm_get_chunk((m),(off),(sz))
+#   define hc_bitmask_check(N, M)               ((N) & (M))
+#   define hc_bitmask_toggle(N, M)              ((N) ^ (M))
+#   define hc_bitmask_set(N, M)                 ((N) | (M))
+#   define hc_bitmask_clear(N, M)               ((N) & (~(M)))
+#   define hc_bitmask_get_chunk(m, off, size)   hc__bitmask_get_chunk((m),(off),(sz))
 uint64_t __bm_get_chunk(uint64_t mask, unsigned char offset, unsigned char size);
 /*Either a single `size_t` (64 bit) set
  * Or more under a array to multiple `size_t` 's. */
@@ -30,19 +30,19 @@ typedef struct {
         size_t   *array;
         size_t   single;
     } item;
-} BitSet;
+} hc_BitSet;
 
 
-void bitset_upsize(Allocator allocator, BitSet* set, size_t id);
-void bitset_drop(Allocator allocator, BitSet *set);
-bool bitset_set(BitSet* set, unsigned long id);
+void hc_bitset_upsize(Allocator allocator, hc_BitSet* set, size_t id);
+void hc_bitset_drop(Allocator allocator, hc_BitSet *set);
+bool hc_bitset_set(hc_BitSet* set, unsigned long id);
 
 /*TODO: check if pointer is not within bitset when resizing (array_inplace) */
-void bitset_upsize(Allocator allocator, BitSet* set, size_t id) {
+void hc_bitset_upsize(Allocator allocator, hc_BitSet* set, size_t id) {
     size_t new_capacity, *new_array;
-    bool bitset_too_small_for_allocations = 
+    bool hc_bitset_too_small_for_allocations = 
         (set->capacity <= BITSET_CELL_SIZE && id < BITSET_CELL_SIZE);
-    if(set->capacity > id || bitset_too_small_for_allocations) 
+    if(set->capacity > id || hc_bitset_too_small_for_allocations) 
         return;
     assert(id && "Has to be greater than 0.");
     
@@ -73,7 +73,7 @@ void bitset_upsize(Allocator allocator, BitSet* set, size_t id) {
     set->capacity    = new_capacity;
 }
 
-void bitset_drop(Allocator allocator, BitSet *set) {
+void hc_bitset_drop(Allocator allocator, hc_BitSet *set) {
     if(set->capacity > BITSET_CELL_SIZE && allocator.free) {
         allocator_free(allocator, set->item.array, set->capacity/BITSET_CELL_SIZE);
         set->item.array = NULL;
@@ -84,15 +84,16 @@ void bitset_drop(Allocator allocator, BitSet *set) {
 }
 
 
-bool bitset_set(BitSet* set, unsigned long id) {
+bool hc_bitset_set(hc_BitSet* set, unsigned long id) {
     if(!set->capacity) set->capacity = BITSET_CELL_SIZE;
     if(id >= set->capacity) return false;
     set->item.single |= (1 << id);
+    return true;
 }
 
-bool bitset_get(BitSet s, unsigned long id) {
-    size_t i = 0, cell_id = 0, cell = 0, relative_id = id;
-
+bool hc_bitset_get(hc_BitSet s, unsigned long id) {
+    size_t  cell_id = 0, cell = 0, relative_id = id;
+    
     assert(!(s.capacity % BITSET_CELL_SIZE) &&
             "Bits capacity needs to be divisible by (sizeof(size_t)*8)");
     if(id >= s.capacity) return false;
@@ -108,14 +109,14 @@ bool bitset_get(BitSet s, unsigned long id) {
     return (cell >> relative_id) & 0x1;
 }
 
-bool bitset_clear(BitSet* set, unsigned long id) {
+bool hc_bitset_clear(hc_BitSet* set, unsigned long id) {
     if(!set->capacity) set->capacity = BITSET_CELL_SIZE;
     if(id >= set->capacity) return false;
     set->item.single &= ~(1 << id);
     return true;
 }
 
-const char* bitset_to_cstring(Allocator allocator,  BitSet s) 
+const char* hc_bitset_to_cstring(Allocator allocator,  hc_BitSet s) 
 #define string_push(s,c) ((*(s)++) = (c))
 {
     char* string = 0, *result = 0;
@@ -131,7 +132,7 @@ const char* bitset_to_cstring(Allocator allocator,  BitSet s)
         for(c = 0; c < cells; c++) {
             for(i = 0; i < BITSET_CELL_SIZE; i++) {
                 size_t index = c*BITSET_CELL_SIZE + i;
-                string_push(string, bitset_get(s, index) ? '1':'0');
+                string_push(string, hc_bitset_get(s, index) ? '1':'0');
             }
             string_push(string, '\n');
         }
@@ -140,13 +141,13 @@ const char* bitset_to_cstring(Allocator allocator,  BitSet s)
         enum {NULL_TERM = 1};
         size = sizeof(char)*BITSET_CELL_SIZE;
         string = allocator_alloc(allocator, size + NULL_TERM);
-        for(i = 0; i < size; i++) string[i] = bitset_get(s, i) ? '1':'0';
+        for(i = 0; i < size; i++) string[i] = hc_bitset_get(s, i) ? '1':'0';
     }
     return result;
 #undef string_push
 }
 
-uint64_t __bm_get_chunk(uint64_t mask, unsigned char offset, unsigned char size) {
+uint64_t hc__bitmask_get_chunk(uint64_t mask, unsigned char offset, unsigned char size) {
     int select_mask = 0;
     for(int i = 0; i < size; i++) select_mask |= (1 << i);
     return (mask >> offset) & select_mask;
