@@ -4,6 +4,11 @@
 **I DON'T TAKE ANY RESPONSIBILITY FOR ANYTHING THAT CAN GO WRONG WHEN USING MY MODE, SO USE IT AT YOUR OWN RISK AND ONLY IF YOU KNOW WHAT YOU ARE DOING.**
 **THIS HEADERS CAN CHANGE AT ANY POINT IN TIME WITHOUT WARNING AS I AM STILL DEVELOPING MY TOOLKIT. NO WARRANTY IS GIVEN!**
 
+## DISCLAIMER:
+- Some of the library parts are a bit inconsistent because they went trough a lot of changes. This will get fixed over time.
+- So far headers are not tested for C++, I aim to support variadics, generics, but not optional function arguments as those conflict with C++, implement them yourself.
+- This headers are mostly standard library data structures but graphics stuff may be included (Or it may not, i don't know).
+
 ## About
 Single header file libraries (`snippets`) written in C for my personal projects.
 Snippets meant to be highly reusable and easy do distribute and package by simply concatenating them.
@@ -46,7 +51,7 @@ Headers:
 - [x] hc_array.h - Resizable array data structure.
 - [x] hc_xarray.h - Resizable exponential array data structure.
 - [x] hc_table.h - Hash table.
-- [x] hc_grid.h - 2D grid header for Graphical contexts.
+- [ ] hc_grid.h - 2D grid header for Graphical contexts.
 - [x] hc_pool.h, hc_pool2.h - Two different implementations of Pool data structure, they differ in approach to storing free-list indexes.
 - [x] hc_string.h - Implementation of String, CString, MutableCString, StringBuilder types and their functions.
 - [x] hc_bitset.h - Bitset (Bit array).
