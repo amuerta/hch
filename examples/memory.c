@@ -71,12 +71,17 @@ SystemMemoryPage hc_memory_map(size_t size, SystemMemoryFlags flags) {
 }
 
 bool hc_memory_unmap(SystemMemoryPage *page) {
+    bool result = 0;
 #ifdef _WIN32
+    unsigned block_needs_no_size_specifier = 0
+    result = VirtualFree(page->ptr, 
+            block_needs_no_size_specifier,
+            MEM_RELEASE);
 #else // POSIX
-    bool result = !munmap(page->ptr, (assert(page->size), page->size));
+    result = !munmap(page->ptr, (assert(page->size), page->size));
+#endif
     memset(page, 0, sizeof(*page));
     return result;
-#endif
 }
 
 int main(void) {
@@ -85,21 +90,18 @@ int main(void) {
     
     // size_t n = (1<<30);
     size_t n = (1<<30);
-    // SystemMemoryPage page = hc_memory_map(n, HC_MEMORY_DEFAULT); 
-    page.ptr = malloc(n);
+    SystemMemoryPage page = hc_memory_map(n, HC_MEMORY_DEFAULT); 
     page.size = n;
     assert(page.ptr);
     int* array = page.ptr;
     //get_array_of_xs(n);
-    scanf("%lu", &n);
-#if 0
+#if 1
     printf("%s[%i] : [ ", "array" , n);
     for(int i = 0; i < n; i++) {
         printf("%i ", array[i]);
     }
     printf("]\n");
 #endif
-    free(page.ptr);
-    // assert(hc_memory_unmap(&page));
+    assert(hc_memory_unmap(&page));
     return 0;
 }

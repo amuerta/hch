@@ -51,7 +51,7 @@
 # define cmp(l,r)        hc_cmp(l,r)       
 #endif
 
-#ifndef TEMP_ALLOCATOR_SIZE // 8 Mb
+#ifndef TEMP_ALLOCATOR_SIZE /* 8 Mb */
 #   define TEMP_ALLOCATOR_SIZE 1024 * 1024 * 8
 #endif
 
@@ -73,7 +73,7 @@ void* hc_temp_str       (const char* string);
 /*
     # FORMAT
 */
-// 16 kb of format.
+/* 16 kb of format. */
 #define FORMAT_MAX_BUFFERS  16
 #define FORMAT_MAX_CHARS    1024
 /* C99 or newer */
@@ -100,6 +100,7 @@ void* hc_temp_str       (const char* string);
     }
 #else /* pre-C99 */
     const char* hc_format(const char* fmt, ...) {
+        (void) fmt;
         assert(0 && "const char* format(const char* fmt, ...) requires C99+");
     }
 #endif
@@ -144,7 +145,7 @@ void* hc_temp_alloc(size_t size) {
     }
 
     assert(size < TEMP_ALLOCATOR_SIZE);
-    // reset if can't fit
+    /* reset if can't fit */
     if (current + size > TEMP_ALLOCATOR_SIZE) 
         current = 0;
     mem = temp_memory + current;

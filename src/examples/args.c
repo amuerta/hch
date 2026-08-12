@@ -1,6 +1,6 @@
 
 #define INCLUDE_ARGS
-#include "../src/args.h"
+#include <hc_args.h>
 
 int main(int argc, char** argv) {
     static ArgsRecord usage = {

@@ -1,7 +1,7 @@
 
 #define INCLUDE_ARENA
 #define HCH_ARENA_IMPLEMENTATION
-#include "../src/arena.h"
+#include <hc_arena.h>
 
 // cc -o NAME NAME.c -ggdb -pg -Wextra -Wall -fsanitize=address
 
@@ -101,5 +101,5 @@ int arena_test_strings(void) {
 
 int main(void) {
     arena_test_flexible_block();
-    // arena_test_strings();
+    arena_test_strings();
 }

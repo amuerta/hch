@@ -10,7 +10,7 @@
 #include <assert.h>
 #include <string.h>
 
-#define hc_Stack(T) struct {    \
+#define hc_Stack(T) struct/*Stack(T)*/{    \
     T* items;                   \
     size_t count, capacity;     \
 }
