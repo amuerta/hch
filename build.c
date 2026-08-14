@@ -10,6 +10,7 @@ typedef struct {
     bool debug_info;
     bool cpp_compatibility_test;
     bool run;
+    bool all_warnings;
 } BuildInfo; 
 
 #define arg_flag_record     hc_arg_flag_record
@@ -60,7 +61,7 @@ int main(int argc, char** argv) {
         info.compile_w_mingw = true;
 
     if(arg_flag_record(args, "nerd", "USED WITH `build`. Apply all of the warnings (-Wall -Wextra).")) 
-        info.compile_w_mingw = true;
+        info.all_warnings = true;
 
     if(arg_flag_record(args, "debug", "USED WITH `build`. Enable ggdb debug symbols")) 
         info.debug_info = true;
@@ -135,6 +136,9 @@ int main(int argc, char** argv) {
 
                     if(info.address_sanitizer) 
                         nob_cmd_append(&cmd, "-fsanitize=address");
+
+                    if(info.all_warnings)
+                        nob_cmd_append(&cmd, "-Wall", "-Wextra");
 
                     //nob_log(NOB_INFO, "examples/%s compiles to %s", file, out);
                     
