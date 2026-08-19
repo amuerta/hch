@@ -1,6 +1,6 @@
 # CHANGELOG 
 
-Should match the commit history, or at least give you an idea of what changed happened and when.
+Should match the commit history, or at least give you an idea of what changed and when.
 
 # V0
 **I didn't track changes, view commit history.**
