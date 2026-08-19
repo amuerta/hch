@@ -20,3 +20,4 @@ Should match the commit history, or at least give you an idea of what changed an
 0. Added `hc_list.h` generic list data structure, with example `list.c`. This is third (maybe fourth) iteration of list data structure.
 0. Added `hc_math.h` with example `math.c`, example is there just to test compilation, need to add asserts and more checking for work.
 0. Changed `hc_format()` in `hc_memory.h` to have it's own guard, made it always available as it is compatible with GNU C89. (I DO NOT CARE ABOUT ANSI ISO C89 ANYMORE.)
+0. Removed `benchmarks/` as there is no proper tests. They will comeback once I have some actual tests.
