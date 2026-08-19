@@ -18,3 +18,5 @@ Should match the commit history, or at least give you an idea of what changed an
 0. Added missing `--nerd` flag response for `./build.c`.
 0. Updated `array.c` to have use of `hc_array_unordered_remove()`.
 0. Added `hc_list.h` generic list data structure, with example `list.c`. This is third (maybe fourth) iteration of list data structure.
+0. Added `hc_math.h` with example `math.c`, example is there just to test compilation, need to add asserts and more checking for work.
+0. Changed `hc_format()` in `hc_memory.h` to have it's own guard, made it always available as it is compatible with GNU C89. (I DO NOT CARE ABOUT ANSI ISO C89 ANYMORE.)

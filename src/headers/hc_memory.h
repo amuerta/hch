@@ -159,35 +159,41 @@ void* hc_temp_str       (const char* string);
 /*
     # FORMAT
 */
-/* 32 KB of format. */
-#define FORMAT_MAX_BUFFERS  16
-#define FORMAT_MAX_CHARS    (1024 * 2)
-/* C99 or newer */
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
-    const char* hc_format(const char* fmt, ...) {
-        va_list     args, args_len;
-        static int  n;
-        static char memory[FORMAT_MAX_BUFFERS][FORMAT_MAX_CHARS];
-        int current = n;
-        size_t size = 0;
-        
-        va_start(args, fmt);
-        va_copy(args_len, args);
-        size = vsnprintf(NULL,0,fmt,args_len);
-        va_end(args_len);
-        size++; /* vsnprintf is weird. */
 
-        assert(size <= FORMAT_MAX_CHARS);
-        vsnprintf((void*)(memory[n]), size, fmt, args);
-        memory[n][size-1] = 0; /* vsnprintf is weird. */
-        n = (n + 1) % FORMAT_MAX_BUFFERS;
+#ifndef __HC_FORMAT
+#define __HC_FORMAT
 
-        return memory[current];
-    }
-#else /* pre-C99 */
-    const char* hc_format(const char* fmt, ...) {
-        assert(0 && "const char* format(const char* fmt, ...) requires C99+");
-    }
+#include <stdarg.h>
+#ifndef FORMAT_MAX_BUFFERS  
+#   define FORMAT_MAX_BUFFERS  16
+#endif
+
+#ifndef FORMAT_MAX_CHARS
+#   define FORMAT_MAX_CHARS    (1024 * 2)
+#endif
+/*This function works since GNU C89(90,ANSI), 
+ * I HATE REGULAR C89 ISO. NOT SUPPORTED. PERIOD.*/
+const char* hc_format(const char* fmt, ...) {
+    va_list     args, args_len;
+    static int  n;
+    static char memory[FORMAT_MAX_BUFFERS][FORMAT_MAX_CHARS];
+    int current = n;
+    size_t size = 0;
+
+    va_start(args, fmt);
+    va_copy(args_len, args);
+    size = vsnprintf(NULL,0,fmt,args_len);
+    va_end(args_len);
+    size++; /* vsnprintf is weird. */
+
+    assert(size <= FORMAT_MAX_CHARS);
+    vsnprintf((void*)(memory[n]), size, fmt, args);
+    memory[n][size-1] = 0; /* vsnprintf is weird. */
+    n = (n + 1) % FORMAT_MAX_BUFFERS;
+
+    return memory[current];
+}
+
 #endif
 
 /*

@@ -59,13 +59,14 @@ Headers:
 - [x] hc_tokenize.h - Context-less tokenizer functions.
 - [ ] hc_comptime.h - Compile time functionality in C. Code seekers, matchers, in-place changers, generators.
 - [ ] hc_datalan.h - Data Language similar to JSON but less bad.
-- [ ] hc_math.h - All of the math functionality like Linear Algebra, Geometry, and other.
-- [ ] hc_list.h - List and Tree data structure types and macros.
+- [x] hc_math.h - All of the math functionality like Linear Algebra, Geometry, and other.
+- [x] hc_list.h - List and Tree data structure types and macros.
 - [ ] hc_unrollist.h - Implementation of Unrolled List container for any type.
 - [ ] hc_time.h - Implementation of Time types and profiler.
 - [ ] hc_graphics.h - Reference implementation of graphics interface.
 - [ ] hc_sset.h - Implementation of Sparse Set.
 - [ ] hc_relational_storage.h - Implementation of ECS-like fast, memory efficient, archetype storage for general use in optimized software (such as games or whatnot).
+- [ ] hc_file.h - Implementation of cross-platform file reading/streaming, watching file change, writing, operations like locking or copying, etc.
 - ...More? I might add anything really, maybe later...
 
 ## Bindings:
