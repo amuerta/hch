@@ -17,3 +17,4 @@ Should match the commit history, or at least give you an idea of what changed ha
 0. Removed old `./examples`.
 0. Added missing `--nerd` flag response for `./build.c`.
 0. Updated `array.c` to have use of `hc_array_unordered_remove()`.
+0. Added `hc_list.h` generic list data structure, with example `list.c`. This is third (maybe fourth) iteration of list data structure.
